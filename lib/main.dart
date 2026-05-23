@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  // Menjamin inisialisasi binding widget Flutter sebelum menjalankan kode asinkronus
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Inisialisasi Firebase menggunakan opsi multiplatform terkonfigurasi otomatis
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   // Diposisikan di root aplikasi untuk mendukung manajemen state terdistribusi Riverpod
   runApp(
     const ProviderScope(
