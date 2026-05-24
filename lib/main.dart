@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'features/auth/domain/models/user_model.dart';
+import 'features/auth/presentation/controllers/auth_controller.dart';
+import 'features/auth/presentation/screens/login_screen.dart';
+import 'features/auth/presentation/screens/tunanetra_home_screen.dart';
+import 'features/auth/presentation/screens/volunteer_home_screen.dart';
 
 void main() async {
   // Menjamin inisialisasi binding widget Flutter sebelum menjalankan kode asinkronus
@@ -20,11 +25,14 @@ void main() async {
   );
 }
 
-class TemanNetraApp extends StatelessWidget {
+class TemanNetraApp extends ConsumerWidget {
   const TemanNetraApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Memantau status sesi pengguna secara reaktif untuk memicu routing otomatis.
+    final authState = ref.watch(authControllerProvider);
+
     return MaterialApp(
       title: 'TemanNetra',
       debugShowCheckedModeBanner: false,
@@ -43,34 +51,32 @@ class TemanNetraApp extends StatelessWidget {
         materialTapTargetSize: MaterialTapTargetSize.padded,
       ),
       
-      home: const TempHomeScreen(),
-    );
-  }
-}
-
-class TempHomeScreen extends StatelessWidget {
-  const TempHomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('TemanNetra'),
-        centerTitle: true,
-      ),
-      body: Center(
-        child: Semantics(
-          label: 'Selamat datang di aplikasi TemanNetra. Tekan dua kali untuk mulai menjelajah.',
-          focused: true,
-          child: const Padding(
-            padding: EdgeInsets.all(24.0),
-            child: Text(
-              'TemanNetra\n(Aksesibilitas & Inklusivitas Terkoneksi)',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFFFD700),
+      home: authState.when(
+        data: (user) {
+          if (user == null) {
+            return const LoginScreen();
+          }
+          // Mengarahkan pengguna secara reaktif ke layar beranda spesifik berdasarkan perannya.
+          if (user.role == UserRole.tunanetra) {
+            return const TunanetraHomeScreen();
+          } else {
+            return const VolunteerHomeScreen();
+          }
+        },
+        loading: () => const Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+        error: (error, _) => Scaffold(
+          body: Center(
+            child: Semantics(
+              label: 'Terjadi kesalahan sistem: $error',
+              focused: true,
+              child: Text(
+                'System Error\n$error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.redAccent),
               ),
             ),
           ),
@@ -79,3 +85,4 @@ class TempHomeScreen extends StatelessWidget {
     );
   }
 }
+

@@ -37,6 +37,57 @@ The interface is designed to support baseline accessibility parameters:
 * **Database & Storage**: Firebase Authentication, Cloud Firestore, and Firebase Storage.
 * **APIs**: Gemini Developer API (OCR/Text recognition) and Firebase Cloud Messaging (FCM).
 
+## 📊 Class Diagram
+The following class diagram represents the modular authentication system (Domain, Data, and Presentation layers) designed for role-based access control:
+
+```mermaid
+classDiagram
+    class UserRole {
+        <<enumeration>>
+        tunanetra
+        volunteer
+        +fromString(String value) UserRole
+    }
+
+    class UserModel {
+        +String uid
+        +String email
+        +String name
+        +UserRole role
+        +copyWith(uid, email, name, role) UserModel
+        +toMap() Map
+        +fromMap(Map map) UserModel
+    }
+
+    class AuthRepository {
+        <<interface>>
+        +Stream~UserModel?~ authStateChanges
+        +signInWithEmailAndPassword(String email, String password) Future~UserModel~
+        +signUpWithEmailAndPassword(String email, String password, String name, UserRole role) Future~UserModel~
+        +getCurrentUserData() Future~UserModel?~
+        +signOut() Future~void~
+    }
+
+    class AuthRepositoryImpl {
+        -_firebaseAuth FirebaseAuth
+        -_firestore FirebaseFirestore
+        +_fetchUserData(String uid) Future~UserModel?~
+    }
+
+    class AuthController {
+        +build() Stream~UserModel?~
+        +signIn(String email, String password) Future~void~
+        +signUp(String email, String password, String name, UserRole role) Future~void~
+        +signOut() Future~void~
+    }
+
+    UserModel --> UserRole
+    AuthRepositoryImpl ..|> AuthRepository
+    AuthRepositoryImpl --> UserModel
+    AuthController --> AuthRepository
+    AuthController --> UserModel
+```
+
 ## 🛠️ Local Development Setup
 
 Platform configurations and API credentials are excluded from version control. Follow these steps to initialize the project locally:
