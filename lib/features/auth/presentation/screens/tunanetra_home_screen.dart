@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/haptic_service.dart';
 import '../../../../core/utils/tts_service.dart';
 import '../../../ai_assistant/presentation/screens/ai_assistant_screen.dart';
+import '../../../help_request/presentation/screens/help_request_history_screen.dart';
 import '../controllers/auth_controller.dart';
 
 /// Halaman beranda utama khusus untuk pengguna penyandang disabilitas netra.
@@ -100,6 +101,49 @@ class TunanetraHomeScreen extends ConsumerWidget {
                         Text(
                           'BUKA ASISTEN AI',
                           style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Tombol kedua Daftar Bantuan Saya (Aksesibilitas Tinggi)
+              Semantics(
+                label: 'Tombol Buka Daftar Bantuan Saya',
+                hint: 'Ketuk dua kali untuk melihat riwayat dan memantau status tiket bantuan Anda.',
+                button: true,
+                child: SizedBox(
+                  height: 120,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFFFD700), width: 3),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    onPressed: () {
+                      ref.read(hapticServiceProvider).vibrateClick();
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const HelpRequestHistoryScreen(),
+                        ),
+                      );
+                    },
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.list_alt, size: 48, color: Color(0xFFFFD700)),
+                        SizedBox(height: 8),
+                        Text(
+                          'DAFTAR BANTUAN SAYA',
+                          style: TextStyle(
+                            color: Color(0xFFFFD700),
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.2,
