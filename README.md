@@ -38,7 +38,7 @@ The interface is designed to support baseline accessibility parameters:
 * **APIs**: Gemini Developer API (OCR/Text recognition) and Firebase Cloud Messaging (FCM).
 
 ## 📊 Class Diagram
-The following class diagram represents the modular authentication system (Domain, Data, and Presentation layers) designed for role-based access control:
+The following class diagram represents the modular, clean architecture architecture of TemanNetra (Authentication module, AI Assistant module, and shared accessibility utility services):
 
 ```mermaid
 classDiagram
@@ -81,11 +81,63 @@ classDiagram
         +signOut() Future~void~
     }
 
+    class AiResult {
+        +String text
+        +String sceneDescription
+        +DateTime timestamp
+        +copyWith(text, sceneDescription, timestamp) AiResult
+        +toMap() Map
+        +fromMap(Map map) AiResult
+    }
+
+    class AiRepository {
+        <<interface>>
+        +analyzeImage(Uint8List imageBytes) Future~AiResult~
+    }
+
+    class AiRepositoryImpl {
+        -_model GenerativeModel
+    }
+
+    class AiAssistantController {
+        +build() FutureOr~AiResult?~
+        +processImage(Uint8List imageBytes) Future~void~
+        +clearResult() void
+    }
+
+    class TtsService {
+        -_flutterTts FlutterTts
+        +speak(String text) Future~void~
+        +stop() Future~void~
+    }
+
+    class HapticService {
+        +vibrateClick() Future~void~
+        +vibrateSuccess() Future~void~
+        +vibrateError() Future~void~
+    }
+
+    class AiAssistantScreen {
+        <<stateful>>
+        -_cameraController CameraController
+        -_initializeCamera() Future~void~
+        -_takePictureAndAnalyze() Future~void~
+    }
+
     UserModel --> UserRole
     AuthRepositoryImpl ..|> AuthRepository
     AuthRepositoryImpl --> UserModel
     AuthController --> AuthRepository
     AuthController --> UserModel
+
+    AiRepositoryImpl ..|> AiRepository
+    AiRepositoryImpl --> AiResult
+    AiAssistantController --> AiRepository
+    AiAssistantController --> AiResult
+
+    AiAssistantScreen --> AiAssistantController : ref.watch
+    AiAssistantScreen --> TtsService : ref.read
+    AiAssistantScreen --> HapticService : ref.read
 ```
 
 ## 🛠️ Local Development Setup

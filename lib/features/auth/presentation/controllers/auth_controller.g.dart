@@ -28,7 +28,7 @@ final authRepositoryProvider = AutoDisposeProvider<AuthRepository>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthRepositoryRef = AutoDisposeProviderRef<AuthRepository>;
-String _$authControllerHash() => r'83029078675bf4702b72d33b4ec5ba80cbcd4e7b';
+String _$authControllerHash() => r'97e2db4838315c826225a0d33100ef73a2a40727';
 
 /// Pengendali state autentikasi reaktif berbasis StreamNotifier.
 ///

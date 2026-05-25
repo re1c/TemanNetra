@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Izin akses kamera fisik untuk menangkap objek visual -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Izin untuk memicu vibrasi motor sebagai umpan balik taktil tunanetra -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:label="temannetra"
         android:name="${applicationName}"
