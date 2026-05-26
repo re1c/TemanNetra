@@ -1,41 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../controllers/auth_controller.dart';
+import 'package:temannetra/features/volunteer/presentation/screens/volunteer_dashboard_screen.dart';
 
-/// Halaman beranda sementara untuk pengguna relawan.
-class VolunteerHomeScreen extends ConsumerWidget {
+/// Halaman beranda untuk pengguna relawan.
+///
+/// Layar ini menjadi entry point role relawan dari auth flow, lalu mendelegasikan
+/// tampilan utama ke modul volunteer agar struktur feature-first tetap terjaga.
+class VolunteerHomeScreen extends StatelessWidget {
   const VolunteerHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Volunteer Dashboard'),
-        actions: [
-          Semantics(
-            label: 'Sign Out Button',
-            hint: 'Double tap to log out of your account',
-            button: true,
-            child: IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () {
-                ref.read(authControllerProvider.notifier).signOut();
-              },
-            ),
-          ),
-        ],
-      ),
-      body: Center(
-        child: Semantics(
-          label: 'Welcome to Volunteer Dashboard. Volunteer mode activated.',
-          focused: true,
-          child: const Text(
-            'Volunteer Mode Active\n(Fase 4 Dashboard)',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Colors.white),
-          ),
-        ),
-      ),
-    );
+  Widget build(BuildContext context) {
+    return const VolunteerDashboardScreen();
   }
 }
