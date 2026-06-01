@@ -38,7 +38,7 @@ The interface is designed to support baseline accessibility parameters:
 * **APIs**: Gemini Developer API (OCR/Text recognition) and Firebase Cloud Messaging (FCM).
 
 ## 📊 Class Diagram
-The following class diagram represents the modular, clean architecture architecture of TemanNetra (Authentication module, AI Assistant module, and shared accessibility utility services):
+The following class diagram represents the modular, clean architecture of TemanNetra, showing the relationships across the Authentication, AI Assistant, Help Request, and Volunteer modules along with shared accessibility utility services:
 
 ```mermaid
 classDiagram
@@ -124,6 +124,105 @@ classDiagram
         -_takePictureAndAnalyze() Future~void~
     }
 
+    class HelpRequestStatus {
+        <<enumeration>>
+        pending
+        claimed
+        resolved
+        +fromString(String value) HelpRequestStatus
+    }
+
+    class HelpRequestModel {
+        +String id
+        +String requesterId
+        +String requesterName
+        +String description
+        +HelpRequestStatus status
+        +String? volunteerId
+        +String? volunteerName
+        +DateTime createdAt
+        +DateTime? resolvedAt
+        +copyWith() HelpRequestModel
+        +toMap() Map
+        +fromMap(Map map, String documentId) HelpRequestModel
+    }
+
+    class HelpRequestRepository {
+        <<interface>>
+        +getMyHelpRequests() Stream~List~HelpRequestModel~~
+        +createHelpRequest(String description) Future~void~
+        +updateHelpRequestDescription(String id, String description) Future~void~
+        +deleteHelpRequest(String id) Future~void~
+    }
+
+    class HelpRequestRepositoryImpl {
+        -_firestore FirebaseFirestore
+        -_auth FirebaseAuth
+    }
+
+    class HelpRequestController {
+        +build() Stream~List~HelpRequestModel~~
+        +createTicket(String description) Future~void~
+        +updateTicket(String id, String description) Future~void~
+        +deleteTicket(String id) Future~void~
+    }
+
+    class ChatMessageModel {
+        +String id
+        +String senderId
+        +String senderName
+        +String? messageText
+        +String? messageUrl
+        +DateTime createdAt
+        +toMap() Map
+        +fromMap(Map map, String documentId) ChatMessageModel
+    }
+
+    class VolunteerRepository {
+        <<interface>>
+        +watchPendingHelpRequests() Stream~List~HelpRequestModel~~
+        +watchMyClaimedHelpRequests() Stream~List~HelpRequestModel~~
+        +watchChatMessages(String requestId) Stream~List~ChatMessageModel~~
+        +claimHelpRequest(String requestId) Future~void~
+        +resolveHelpRequest(String requestId) Future~void~
+        +cancelClaim(String requestId) Future~void~
+        +sendTextMessage(String requestId, String messageText) Future~void~
+    }
+
+    class VolunteerRepositoryImpl {
+        -_firestore FirebaseFirestore
+        -_auth FirebaseAuth
+        -_getCurrentVolunteerName(String uid) Future~String~
+    }
+
+    class VolunteerController {
+        +build() FutureOr~void~
+        +claimHelpRequest(String requestId) Future~void~
+        +resolveHelpRequest(String requestId) Future~void~
+        +cancelClaim(String requestId) Future~void~
+        +sendTextMessage(String requestId, String messageText) Future~void~
+    }
+
+    class CreateHelpRequestScreen {
+        <<stateless>>
+    }
+
+    class EditHelpRequestScreen {
+        <<stateless>>
+    }
+
+    class HelpRequestHistoryScreen {
+        <<stateless>>
+    }
+
+    class VolunteerDashboardScreen {
+        <<stateless>>
+    }
+
+    class ActiveClaimScreen {
+        <<stateless>>
+    }
+
     UserModel --> UserRole
     AuthRepositoryImpl ..|> AuthRepository
     AuthRepositoryImpl --> UserModel
@@ -138,6 +237,26 @@ classDiagram
     AiAssistantScreen --> AiAssistantController : ref.watch
     AiAssistantScreen --> TtsService : ref.read
     AiAssistantScreen --> HapticService : ref.read
+
+    HelpRequestModel --> HelpRequestStatus
+    HelpRequestRepositoryImpl ..|> HelpRequestRepository
+    HelpRequestRepositoryImpl --> HelpRequestModel
+    HelpRequestController --> HelpRequestRepository
+    HelpRequestController --> HelpRequestModel
+
+    VolunteerRepositoryImpl ..|> VolunteerRepository
+    VolunteerRepositoryImpl --> HelpRequestModel
+    VolunteerRepositoryImpl --> ChatMessageModel
+    VolunteerController --> VolunteerRepository
+    VolunteerController --> HelpRequestModel
+    VolunteerController --> ChatMessageModel
+
+    CreateHelpRequestScreen --> HelpRequestController : ref.read
+    EditHelpRequestScreen --> HelpRequestController : ref.read
+    HelpRequestHistoryScreen --> HelpRequestController : ref.watch
+    VolunteerDashboardScreen --> VolunteerController : ref.read
+    ActiveClaimScreen --> VolunteerController : ref.read
+    ActiveClaimScreen --> ChatMessageModel : ref.watch(chatMessages)
 ```
 
 ## 🛠️ Local Development Setup
