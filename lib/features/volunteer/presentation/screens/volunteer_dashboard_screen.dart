@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:temannetra/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:temannetra/features/help_request/domain/models/help_request_model.dart';
 import 'package:temannetra/features/volunteer/presentation/controllers/volunteer_controller.dart';
-import 'package:temannetra/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:temannetra/features/volunteer/presentation/screens/active_claim_screen.dart';
 
 class VolunteerDashboardScreen extends ConsumerWidget {
   const VolunteerDashboardScreen({super.key});
@@ -12,7 +13,10 @@ class VolunteerDashboardScreen extends ConsumerWidget {
     final pendingRequestsAsync = ref.watch(pendingHelpRequestsProvider);
     final actionState = ref.watch(volunteerControllerProvider);
 
-    ref.listen(volunteerControllerProvider, (previous, next) {
+    ref.listen<AsyncValue<void>>(volunteerControllerProvider, (
+      previous,
+      next,
+    ) {
       if (next.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -36,16 +40,23 @@ class VolunteerDashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Dasbor Relawan'),
         actions: [
-          Semantics(
-            label: 'Tombol keluar akun relawan',
-            hint: 'Ketuk dua kali untuk keluar dari akun relawan',
-            button: true,
-            child: IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () {
-                ref.read(authControllerProvider.notifier).signOut();
-              },
-            ),
+          IconButton(
+            tooltip: 'Klaim aktif',
+            icon: const Icon(Icons.assignment_turned_in_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ActiveClaimScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Keluar',
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              ref.read(authControllerProvider.notifier).signOut();
+            },
           ),
         ],
       ),
@@ -72,15 +83,15 @@ class VolunteerDashboardScreen extends ConsumerWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: requests.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final request = requests[index];
 
                 return _PendingRequestCard(
                   request: request,
                   isActionLoading: actionState.isLoading,
-                  onClaimPressed: () async {
-                    await ref
+                  onClaimPressed: () {
+                    ref
                         .read(volunteerControllerProvider.notifier)
                         .claimHelpRequest(request.id);
                   },
@@ -107,9 +118,16 @@ class _PendingRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final requesterName = request.requesterName.isEmpty
+        ? 'Pengguna TemanNetra'
+        : request.requesterName;
+
+    final description = request.description.isEmpty
+        ? 'Tidak ada deskripsi tambahan.'
+        : request.description;
+
     return Semantics(
-      label:
-          'Tiket bantuan dari ${request.requesterName}. Deskripsi: ${request.description}.',
+      label: 'Tiket bantuan dari $requesterName. Deskripsi: $description.',
       button: false,
       child: Card(
         child: Padding(
@@ -118,16 +136,14 @@ class _PendingRequestCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                request.requesterName.isEmpty
-                    ? 'Pengguna TemanNetra'
-                    : request.requesterName,
-                style: Theme.of(context).textTheme.titleMedium,
+                requesterName,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const SizedBox(height: 8),
               Text(
-                request.description.isEmpty
-                    ? 'Tidak ada deskripsi tambahan.'
-                    : request.description,
+                description,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 8),
@@ -144,7 +160,9 @@ class _PendingRequestCard extends StatelessWidget {
                   child: isActionLoading
                       ? const SizedBox.square(
                           dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
                         )
                       : const Text('Klaim Bantuan'),
                 ),

@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:temannetra/features/help_request/domain/models/help_request_model.dart';
+import 'package:temannetra/features/volunteer/domain/models/chat_message_model.dart';
 import 'package:temannetra/features/volunteer/domain/repositories/volunteer_repository.dart';
 
-/// Implementasi repository relawan yang terhubung langsung ke Cloud Firestore.
+/// Implementasi repository relawan yang terhubung ke Cloud Firestore.
 ///
+/// Firestore digunakan untuk menyimpan data tiket bantuan dan chat koordinasi.
 /// Semua perubahan status tiket yang rawan konflik dilakukan dengan transaction
 /// agar satu tiket tidak dapat diklaim oleh dua relawan secara bersamaan.
 class VolunteerRepositoryImpl implements VolunteerRepository {
@@ -19,6 +21,12 @@ class VolunteerRepositoryImpl implements VolunteerRepository {
 
   CollectionReference<Map<String, dynamic>> get _helpRequestsCollection {
     return _firestore.collection('help_requests');
+  }
+
+  CollectionReference<Map<String, dynamic>> _messagesCollection(
+    String requestId,
+  ) {
+    return _helpRequestsCollection.doc(requestId).collection('messages');
   }
 
   /// Membaca daftar tiket bantuan yang masih tersedia untuk diklaim relawan.
@@ -51,6 +59,23 @@ class VolunteerRepositoryImpl implements VolunteerRepository {
         .map((snapshot) {
       return snapshot.docs.map((doc) {
         return HelpRequestModel.fromMap(doc.data(), doc.id);
+      }).toList();
+    });
+  }
+
+  /// Membaca pesan koordinasi pada satu tiket bantuan.
+  @override
+  Stream<List<ChatMessageModel>> watchChatMessages(String requestId) {
+    if (requestId.isEmpty) {
+      return Stream.value([]);
+    }
+
+    return _messagesCollection(requestId)
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return ChatMessageModel.fromMap(doc.data(), doc.id);
       }).toList();
     });
   }
@@ -196,6 +221,66 @@ class VolunteerRepositoryImpl implements VolunteerRepository {
       });
     } catch (e) {
       throw Exception('Gagal membatalkan klaim tiket: ${e.toString()}');
+    }
+  }
+
+  /// Mengirim pesan teks koordinasi pada tiket yang sedang diklaim relawan.
+  @override
+  Future<void> sendTextMessage({
+    required String requestId,
+    required String messageText,
+  }) async {
+    final trimmedMessage = messageText.trim();
+
+    if (trimmedMessage.isEmpty) {
+      throw Exception('Pesan tidak boleh kosong.');
+    }
+
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('Sesi relawan tidak valid. Silakan masuk kembali.');
+    }
+
+    final volunteerName = await _getCurrentVolunteerName(currentUser.uid);
+    final ticketDocRef = _helpRequestsCollection.doc(requestId);
+    final messageDocRef = _messagesCollection(requestId).doc();
+
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final ticketSnapshot = await transaction.get(ticketDocRef);
+
+        if (!ticketSnapshot.exists) {
+          throw Exception('Tiket bantuan tidak ditemukan.');
+        }
+
+        final data = ticketSnapshot.data();
+        if (data == null) {
+          throw Exception('Data tiket bantuan tidak valid.');
+        }
+
+        final currentStatus = HelpRequestStatus.fromString(
+          data['status'] as String? ?? '',
+        );
+        final volunteerId = data['volunteerId'] as String?;
+
+        if (currentStatus != HelpRequestStatus.claimed ||
+            volunteerId != currentUser.uid) {
+          throw Exception(
+            'Pesan hanya dapat dikirim pada tiket yang sedang Anda tangani.',
+          );
+        }
+
+        transaction.set(messageDocRef, {
+          'id': messageDocRef.id,
+          'senderId': currentUser.uid,
+          'senderName': volunteerName,
+          'messageText': trimmedMessage,
+          'messageUrl': null,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (e) {
+      throw Exception('Gagal mengirim pesan: ${e.toString()}');
     }
   }
 
