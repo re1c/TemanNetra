@@ -9,9 +9,7 @@ part of 'help_request_controller.dart';
 String _$helpRequestRepositoryHash() =>
     r'af6a4bdbb302cef5d02bd92bc9d1b9fa8f7419ce';
 
-/// Penyedia repositori tiket bantuan terkonfigurasi.
-///
-/// Copied from [helpRequestRepository].
+/// See also [helpRequestRepository].
 @ProviderFor(helpRequestRepository)
 final helpRequestRepositoryProvider =
     AutoDisposeProvider<HelpRequestRepository>.internal(
@@ -29,15 +27,9 @@ final helpRequestRepositoryProvider =
 typedef HelpRequestRepositoryRef =
     AutoDisposeProviderRef<HelpRequestRepository>;
 String _$helpRequestControllerHash() =>
-    r'c8d6fa908b40a9fcff47ab4488e7a3ffda4ebcf9';
+    r'34bca5366a76ad8dccafb5b7455244bdf34cec43';
 
-/// Pengendali state reaktif berbasis StreamNotifier untuk mengelola daftar tiket.
-///
-/// Kelas ini memantau aliran data perubahan dokumen Firestore secara real-time.
-/// Method mutasi dirancang melempar error (rethrow) agar lapisan presentasi (UI)
-/// dapat menangkap kegagalan secara asinkron dan memberikan respon suara instan.
-///
-/// Copied from [HelpRequestController].
+/// See also [HelpRequestController].
 @ProviderFor(HelpRequestController)
 final helpRequestControllerProvider =
     AutoDisposeStreamNotifierProvider<

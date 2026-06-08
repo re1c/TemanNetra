@@ -6,11 +6,17 @@ import 'package:record/record.dart';
 class VoiceNoteButton extends StatefulWidget {
   final Future<void> Function(String voicePath) onVoiceReady;
   final bool isDisabled;
+  final bool fullWidth;
+  final double height;
+  final double fontSize;
 
   const VoiceNoteButton({
     super.key,
     required this.onVoiceReady,
     this.isDisabled = false,
+    this.fullWidth = false,
+    this.height = 56,
+    this.fontSize = 18,
   });
 
   @override
@@ -45,7 +51,8 @@ class _VoiceNoteButtonState extends State<VoiceNoteButton> {
     }
 
     final fileName = 'voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    final path = '${Directory.systemTemp.path}${Platform.pathSeparator}$fileName';
+    final path =
+        '${Directory.systemTemp.path}${Platform.pathSeparator}$fileName';
 
     await _recorder.start(
       const RecordConfig(
@@ -114,22 +121,42 @@ class _VoiceNoteButtonState extends State<VoiceNoteButton> {
 
   @override
   Widget build(BuildContext context) {
+    final buttonText = _isRecording ? 'Kirim Rekaman' : 'Rekam Suara';
+
     return Semantics(
       label: _isRecording
-          ? 'Sedang merekam voice note. Ketuk dua kali untuk berhenti dan mengirim.'
-          : 'Tombol rekam voice note.',
+          ? 'Sedang merekam. Ketuk dua kali untuk berhenti dan mengirim rekaman.'
+          : 'Tombol rekam suara.',
       button: true,
       child: SizedBox(
-        width: 56,
-        height: 48,
-        child: OutlinedButton(
+        width: widget.fullWidth ? double.infinity : null,
+        height: widget.height,
+        child: FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor:
+                _isRecording ? Colors.redAccent : const Color(0xFFFFD700),
+            foregroundColor: Colors.black,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
           onPressed: widget.isDisabled || _isBusy ? null : _onPressed,
           child: _isBusy
               ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  dimension: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Colors.black,
+                  ),
                 )
-              : Icon(_isRecording ? Icons.stop : Icons.mic),
+              : Text(
+                  buttonText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: widget.fontSize,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
         ),
       ),
     );

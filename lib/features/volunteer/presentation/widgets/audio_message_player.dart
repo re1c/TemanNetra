@@ -5,10 +5,14 @@ import 'package:flutter/material.dart';
 
 class AudioMessagePlayer extends StatefulWidget {
   final String audioUrl;
+  final bool autoPlay;
+  final VoidCallback? onAutoPlayStarted;
 
   const AudioMessagePlayer({
     super.key,
     required this.audioUrl,
+    this.autoPlay = false,
+    this.onAutoPlayStarted,
   });
 
   @override
@@ -23,6 +27,7 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
 
   bool _isPlaying = false;
   bool _isLoading = false;
+  bool _hasAutoPlayed = false;
 
   @override
   void initState() {
@@ -50,6 +55,12 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
         _isLoading = false;
       });
     });
+
+    if (widget.autoPlay) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _autoPlayOnce();
+      });
+    }
   }
 
   @override
@@ -60,7 +71,18 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
     super.dispose();
   }
 
-  Future<void> _toggleAudio() async {
+  Future<void> _autoPlayOnce() async {
+    if (_hasAutoPlayed || !mounted) {
+      return;
+    }
+
+    _hasAutoPlayed = true;
+    widget.onAutoPlayStarted?.call();
+
+    await _playAudio();
+  }
+
+  Future<void> _playAudio() async {
     if (_isLoading) {
       return;
     }
@@ -70,11 +92,7 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
     });
 
     try {
-      if (_isPlaying) {
-        await _audioPlayer.stop();
-      } else {
-        await _audioPlayer.play(UrlSource(widget.audioUrl));
-      }
+      await _audioPlayer.play(UrlSource(widget.audioUrl));
     } finally {
       if (mounted) {
         setState(() {
@@ -84,24 +102,75 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
     }
   }
 
+  Future<void> _stopAudio() async {
+    if (_isLoading) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _audioPlayer.stop();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleAudio() async {
+    if (_isPlaying) {
+      await _stopAudio();
+    } else {
+      await _playAudio();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final buttonText =
+        _isPlaying ? 'Berhenti Memutar' : 'Putar Voice Note';
+
     return Semantics(
       label: _isPlaying
           ? 'Voice note sedang diputar. Ketuk dua kali untuk berhenti.'
           : 'Voice note tersedia. Ketuk dua kali untuk memutar.',
       button: true,
       child: SizedBox(
-        height: 48,
-        child: OutlinedButton.icon(
+        width: double.infinity,
+        height: 54,
+        child: OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFFFD700),
+            side: const BorderSide(
+              color: Color(0xFFFFD700),
+              width: 1.4,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
           onPressed: _toggleAudio,
-          icon: _isLoading
+          child: _isLoading
               ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  dimension: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Color(0xFFFFD700),
+                  ),
                 )
-              : Icon(_isPlaying ? Icons.stop : Icons.play_arrow),
-          label: Text(_isPlaying ? 'Berhenti' : 'Putar Voice Note'),
+              : Text(
+                  buttonText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
         ),
       ),
     );
