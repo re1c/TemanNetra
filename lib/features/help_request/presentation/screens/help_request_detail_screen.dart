@@ -2,9 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/utils/haptic_service.dart';
 import '../../../../core/utils/tts_service.dart';
+import '../../../volunteer/data/services/voice_note_storage_service.dart';
 import '../../../volunteer/domain/models/chat_message_model.dart';
+import '../../../volunteer/presentation/widgets/audio_message_player.dart';
+import '../../../volunteer/presentation/widgets/voice_note_button.dart';
 import '../../domain/models/help_request_model.dart';
 
 class HelpRequestDetailScreen extends ConsumerStatefulWidget {
@@ -23,6 +27,9 @@ class HelpRequestDetailScreen extends ConsumerStatefulWidget {
 class _HelpRequestDetailScreenState
     extends ConsumerState<HelpRequestDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
+  final VoiceNoteStorageService _voiceNoteStorageService =
+      VoiceNoteStorageService();
+
   bool _isSending = false;
 
   @override
@@ -64,7 +71,7 @@ class _HelpRequestDetailScreenState
     return userDoc.data()?['name'] as String? ?? 'Pengguna TemanNetra';
   }
 
-  Future<void> _sendMessage() async {
+  Future<void> _sendTextMessage() async {
     final message = _messageController.text.trim();
 
     if (message.isEmpty) {
@@ -116,6 +123,66 @@ class _HelpRequestDetailScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Gagal mengirim pesan: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _sendVoiceMessage(String voicePath) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      ref.read(hapticServiceProvider).vibrateError();
+      ref.read(ttsServiceProvider).speak(
+            'Sesi pengguna tidak valid. Silakan masuk kembali.',
+          );
+      return;
+    }
+
+    setState(() {
+      _isSending = true;
+    });
+
+    try {
+      final senderName = await _getCurrentUserName(currentUser.uid);
+
+      final voiceUrl = await _voiceNoteStorageService.uploadVoiceNote(
+        requestId: widget.ticket.id,
+        localFilePath: voicePath,
+      );
+
+      final messageDoc = FirebaseFirestore.instance
+          .collection('help_requests')
+          .doc(widget.ticket.id)
+          .collection('messages')
+          .doc();
+
+      await messageDoc.set({
+        'id': messageDoc.id,
+        'senderId': currentUser.uid,
+        'senderName': senderName,
+        'messageText': null,
+        'messageUrl': voiceUrl,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      ref.read(hapticServiceProvider).vibrateSuccess();
+      ref.read(ttsServiceProvider).speak('Voice note berhasil dikirim.');
+    } catch (e) {
+      ref.read(hapticServiceProvider).vibrateError();
+      ref.read(ttsServiceProvider).speak('Gagal mengirim voice note.');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mengirim voice note: $e'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -349,7 +416,8 @@ class _HelpRequestDetailScreenState
             _MessageInputBar(
               controller: _messageController,
               isSending: _isSending,
-              onSend: _sendMessage,
+              onSendText: _sendTextMessage,
+              onSendVoice: _sendVoiceMessage,
             )
           else
             Padding(
@@ -388,14 +456,14 @@ class _MessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = message.messageText?.trim() ?? '';
-    final displayText = text.isEmpty
-        ? 'Pesan suara akan ditampilkan pada tahap berikutnya.'
-        : text;
+    final messageText = message.messageText?.trim();
+    final messageUrl = message.messageUrl?.trim();
+    final hasAudio = messageUrl != null && messageUrl.isNotEmpty;
 
     return Semantics(
-      label:
-          'Pesan dari ${message.senderName}. Isi pesan: $displayText. Dikirim pada ${_formatDate(message.createdAt)}.',
+      label: hasAudio
+          ? 'Voice note dari ${message.senderName}. Dikirim pada ${_formatDate(message.createdAt)}.'
+          : 'Pesan dari ${message.senderName}. Isi pesan: ${messageText ?? 'Pesan kosong'}. Dikirim pada ${_formatDate(message.createdAt)}.',
       container: true,
       child: Align(
         alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -425,13 +493,18 @@ class _MessageCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    displayText,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
+                  if (hasAudio)
+                    AudioMessagePlayer(audioUrl: messageUrl)
+                  else
+                    Text(
+                      messageText == null || messageText.isEmpty
+                          ? 'Pesan kosong'
+                          : messageText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 8),
                   Text(
                     _formatDate(message.createdAt),
@@ -453,12 +526,14 @@ class _MessageCard extends StatelessWidget {
 class _MessageInputBar extends StatelessWidget {
   final TextEditingController controller;
   final bool isSending;
-  final VoidCallback onSend;
+  final VoidCallback onSendText;
+  final Future<void> Function(String voicePath) onSendVoice;
 
   const _MessageInputBar({
     required this.controller,
     required this.isSending,
-    required this.onSend,
+    required this.onSendText,
+    required this.onSendVoice,
   });
 
   @override
@@ -477,12 +552,13 @@ class _MessageInputBar extends StatelessWidget {
                 textField: true,
                 child: TextField(
                   controller: controller,
+                  enabled: !isSending,
                   minLines: 1,
                   maxLines: 3,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) {
                     if (!isSending) {
-                      onSend();
+                      onSendText();
                     }
                   },
                   style: const TextStyle(color: Colors.white),
@@ -500,21 +576,26 @@ class _MessageInputBar extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
+            VoiceNoteButton(
+              isDisabled: isSending,
+              onVoiceReady: onSendVoice,
+            ),
+            const SizedBox(width: 8),
             Semantics(
               label: 'Tombol kirim pesan',
               hint: 'Ketuk dua kali untuk mengirim pesan ke relawan.',
               button: true,
               child: SizedBox(
-                width: 56,
-                height: 56,
+                width: 52,
+                height: 48,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFFFFD700),
                     foregroundColor: Colors.black,
-                    shape: const CircleBorder(),
+                    padding: EdgeInsets.zero,
                   ),
-                  onPressed: isSending ? null : onSend,
+                  onPressed: isSending ? null : onSendText,
                   child: isSending
                       ? const SizedBox.square(
                           dimension: 20,
@@ -523,7 +604,7 @@ class _MessageInputBar extends StatelessWidget {
                             color: Colors.black,
                           ),
                         )
-                      : const Icon(Icons.send, size: 28),
+                      : const Icon(Icons.send, size: 26),
                 ),
               ),
             ),

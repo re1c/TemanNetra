@@ -8,13 +8,11 @@ import 'package:temannetra/features/volunteer/domain/repositories/volunteer_repo
 
 part 'volunteer_controller.g.dart';
 
-/// Provider repository relawan.
 @riverpod
 VolunteerRepository volunteerRepository(VolunteerRepositoryRef ref) {
   return VolunteerRepositoryImpl();
 }
 
-/// Stream daftar tiket bantuan yang masih tersedia untuk diklaim relawan.
 @riverpod
 Stream<List<HelpRequestModel>> pendingHelpRequests(
   PendingHelpRequestsRef ref,
@@ -22,7 +20,6 @@ Stream<List<HelpRequestModel>> pendingHelpRequests(
   return ref.watch(volunteerRepositoryProvider).watchPendingHelpRequests();
 }
 
-/// Stream daftar tiket bantuan yang sedang ditangani oleh relawan aktif.
 @riverpod
 Stream<List<HelpRequestModel>> myClaimedHelpRequests(
   MyClaimedHelpRequestsRef ref,
@@ -30,7 +27,6 @@ Stream<List<HelpRequestModel>> myClaimedHelpRequests(
   return ref.watch(volunteerRepositoryProvider).watchMyClaimedHelpRequests();
 }
 
-/// Stream pesan koordinasi pada satu tiket bantuan.
 @riverpod
 Stream<List<ChatMessageModel>> chatMessages(
   ChatMessagesRef ref,
@@ -39,10 +35,6 @@ Stream<List<ChatMessageModel>> chatMessages(
   return ref.watch(volunteerRepositoryProvider).watchChatMessages(requestId);
 }
 
-/// Controller aksi relawan.
-///
-/// Controller ini menangani mutasi data seperti klaim tiket,
-/// batal klaim, menyelesaikan tiket, dan mengirim pesan teks.
 @riverpod
 class VolunteerController extends _$VolunteerController {
   @override
@@ -78,6 +70,19 @@ class VolunteerController extends _$VolunteerController {
       await ref.read(volunteerRepositoryProvider).sendTextMessage(
             requestId: requestId,
             messageText: messageText,
+          );
+    });
+  }
+
+  Future<void> sendVoiceMessage({
+    required String requestId,
+    required String voicePath,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(volunteerRepositoryProvider).sendVoiceMessage(
+            requestId: requestId,
+            voicePath: voicePath,
           );
     });
   }

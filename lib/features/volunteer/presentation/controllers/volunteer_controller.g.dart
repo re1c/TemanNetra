@@ -9,9 +9,7 @@ part of 'volunteer_controller.dart';
 String _$volunteerRepositoryHash() =>
     r'5aa80e8340ee65cdb657bc9681e232d5f3e78682';
 
-/// Provider repository relawan.
-///
-/// Copied from [volunteerRepository].
+/// See also [volunteerRepository].
 @ProviderFor(volunteerRepository)
 final volunteerRepositoryProvider =
     AutoDisposeProvider<VolunteerRepository>.internal(
@@ -30,9 +28,7 @@ typedef VolunteerRepositoryRef = AutoDisposeProviderRef<VolunteerRepository>;
 String _$pendingHelpRequestsHash() =>
     r'0274b45aa8e65707fb868537cd7eeb33c5299d62';
 
-/// Stream daftar tiket bantuan yang masih tersedia untuk diklaim relawan.
-///
-/// Copied from [pendingHelpRequests].
+/// See also [pendingHelpRequests].
 @ProviderFor(pendingHelpRequests)
 final pendingHelpRequestsProvider =
     AutoDisposeStreamProvider<List<HelpRequestModel>>.internal(
@@ -52,9 +48,7 @@ typedef PendingHelpRequestsRef =
 String _$myClaimedHelpRequestsHash() =>
     r'4ae1a01a696a6c3a3c641f59377fae0ff904786f';
 
-/// Stream daftar tiket bantuan yang sedang ditangani oleh relawan aktif.
-///
-/// Copied from [myClaimedHelpRequests].
+/// See also [myClaimedHelpRequests].
 @ProviderFor(myClaimedHelpRequests)
 final myClaimedHelpRequestsProvider =
     AutoDisposeStreamProvider<List<HelpRequestModel>>.internal(
@@ -94,24 +88,16 @@ class _SystemHash {
   }
 }
 
-/// Stream pesan koordinasi pada satu tiket bantuan.
-///
-/// Copied from [chatMessages].
+/// See also [chatMessages].
 @ProviderFor(chatMessages)
 const chatMessagesProvider = ChatMessagesFamily();
 
-/// Stream pesan koordinasi pada satu tiket bantuan.
-///
-/// Copied from [chatMessages].
+/// See also [chatMessages].
 class ChatMessagesFamily extends Family<AsyncValue<List<ChatMessageModel>>> {
-  /// Stream pesan koordinasi pada satu tiket bantuan.
-  ///
-  /// Copied from [chatMessages].
+  /// See also [chatMessages].
   const ChatMessagesFamily();
 
-  /// Stream pesan koordinasi pada satu tiket bantuan.
-  ///
-  /// Copied from [chatMessages].
+  /// See also [chatMessages].
   ChatMessagesProvider call(String requestId) {
     return ChatMessagesProvider(requestId);
   }
@@ -138,14 +124,10 @@ class ChatMessagesFamily extends Family<AsyncValue<List<ChatMessageModel>>> {
   String? get name => r'chatMessagesProvider';
 }
 
-/// Stream pesan koordinasi pada satu tiket bantuan.
-///
-/// Copied from [chatMessages].
+/// See also [chatMessages].
 class ChatMessagesProvider
     extends AutoDisposeStreamProvider<List<ChatMessageModel>> {
-  /// Stream pesan koordinasi pada satu tiket bantuan.
-  ///
-  /// Copied from [chatMessages].
+  /// See also [chatMessages].
   ChatMessagesProvider(String requestId)
     : this._internal(
         (ref) => chatMessages(ref as ChatMessagesRef, requestId),
@@ -226,14 +208,9 @@ class _ChatMessagesProviderElement
 }
 
 String _$volunteerControllerHash() =>
-    r'499973f4a66396557875922725ea40090c65f44d';
+    r'133bafc6508d22d0ae23788ec80722af8e33e20c';
 
-/// Controller aksi relawan.
-///
-/// Controller ini menangani mutasi data seperti klaim tiket,
-/// batal klaim, menyelesaikan tiket, dan mengirim pesan teks.
-///
-/// Copied from [VolunteerController].
+/// See also [VolunteerController].
 @ProviderFor(VolunteerController)
 final volunteerControllerProvider =
     AutoDisposeAsyncNotifierProvider<VolunteerController, void>.internal(
