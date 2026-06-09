@@ -6,6 +6,7 @@ import '../../domain/models/help_request_model.dart';
 import '../controllers/help_request_controller.dart';
 import 'create_help_request_screen.dart';
 import 'edit_help_request_screen.dart';
+import 'help_request_detail_screen.dart';
 
 /// Layar riwayat daftar tiket bantuan tunanetra (Read & Delete).
 ///
@@ -15,29 +16,33 @@ class HelpRequestHistoryScreen extends ConsumerStatefulWidget {
   const HelpRequestHistoryScreen({super.key});
 
   @override
-  ConsumerState<HelpRequestHistoryScreen> createState() => _HelpRequestHistoryScreenState();
+  ConsumerState<HelpRequestHistoryScreen> createState() =>
+      _HelpRequestHistoryScreenState();
 }
 
-class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScreen> {
+class _HelpRequestHistoryScreenState
+    extends ConsumerState<HelpRequestHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    // Suara sambutan layar dan instruksi navigasi awal
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(ttsServiceProvider).speak(
-        'Layar riwayat tiket bantuan Anda aktif. '
-        'Menampilkan daftar pengajuan bantuan Anda secara real-time.'
-      );
+            'Layar riwayat tiket bantuan Anda aktif. '
+            'Menampilkan daftar pengajuan bantuan Anda secara real-time.',
+          );
     });
   }
 
-  /// Menampilkan dialog konfirmasi verbal sebelum menghapus dokumen Firestore.
-  Future<void> _confirmDelete(BuildContext context, HelpRequestModel ticket) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    HelpRequestModel ticket,
+  ) async {
     ref.read(hapticServiceProvider).vibrateClick();
     ref.read(ttsServiceProvider).speak(
-      'Apakah Anda yakin ingin menghapus tiket bantuan ini secara permanen? '
-      'Geser layar untuk memilih opsi Ya atau Batal.'
-    );
+          'Apakah Anda yakin ingin menghapus tiket bantuan ini secara permanen? '
+          'Geser layar untuk memilih opsi Ya atau Batal.',
+        );
 
     return showDialog<void>(
       context: context,
@@ -46,7 +51,10 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
           backgroundColor: const Color(0xFF1E1E1E),
           title: const Text(
             'Hapus Tiket?',
-            style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Color(0xFFFFD700),
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: Text(
             'Ingin menghapus tiket "${ticket.description}"?',
@@ -57,10 +65,18 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
               label: 'Tombol Batal Hapus',
               button: true,
               child: TextButton(
-                child: const Text('BATAL', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                child: const Text(
+                  'BATAL',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 16,
+                  ),
+                ),
                 onPressed: () {
                   ref.read(hapticServiceProvider).vibrateClick();
-                  ref.read(ttsServiceProvider).speak('Penghapusan dibatalkan.');
+                  ref.read(ttsServiceProvider).speak(
+                        'Penghapusan dibatalkan.',
+                      );
                   Navigator.of(dialogContext).pop();
                 },
               ),
@@ -69,7 +85,13 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
               label: 'Tombol Ya Hapus Permanen',
               button: true,
               child: TextButton(
-                child: const Text('YA, HAPUS', style: TextStyle(color: Colors.redAccent, fontSize: 16)),
+                child: const Text(
+                  'YA, HAPUS',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 16,
+                  ),
+                ),
                 onPressed: () async {
                   Navigator.of(dialogContext).pop();
                   await _executeDelete(ticket.id);
@@ -82,9 +104,9 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
     );
   }
 
-  /// Mengeksekusi penghapusan tiket dari Firestore.
   Future<void> _executeDelete(String id) async {
     ref.read(ttsServiceProvider).speak('Sedang menghapus tiket bantuan...');
+
     try {
       await ref.read(helpRequestControllerProvider.notifier).deleteTicket(id);
       ref.read(hapticServiceProvider).vibrateSuccess();
@@ -95,12 +117,12 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
     }
   }
 
-  /// Memformat waktu DateTime menjadi format string Indonesia yang ringkas tanpa paket luar.
   String _formatDate(DateTime dt) {
-    return '${dt.day}/${dt.month}/${dt.year} pukul ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    return '${dt.day}/${dt.month}/${dt.year} pukul '
+        '${dt.hour.toString().padLeft(2, '0')}:'
+        '${dt.minute.toString().padLeft(2, '0')}';
   }
 
-  /// Mengonversi enum status menjadi teks bahasa Indonesia yang ramah pembaca layar.
   String _mapStatusText(HelpRequestStatus status) {
     switch (status) {
       case HelpRequestStatus.pending:
@@ -112,16 +134,28 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
     }
   }
 
-  /// Mengonversi enum status menjadi warna kontras tinggi.
   Color _mapStatusColor(HelpRequestStatus status) {
     switch (status) {
       case HelpRequestStatus.pending:
-        return const Color(0xFFFFD700); // Kuning terang untuk pending
+        return const Color(0xFFFFD700);
       case HelpRequestStatus.claimed:
-        return const Color(0xFF64B5F6); // Biru terang untuk claimed
+        return const Color(0xFF64B5F6);
       case HelpRequestStatus.resolved:
-        return const Color(0xFF81C784); // Hijau terang untuk resolved
+        return const Color(0xFF81C784);
     }
+  }
+
+  void _openDetail(HelpRequestModel ticket) {
+    ref.read(hapticServiceProvider).vibrateClick();
+    ref.read(ttsServiceProvider).speak(
+          'Membuka detail tiket bantuan dan pesan koordinasi.',
+        );
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => HelpRequestDetailScreen(ticket: ticket),
+      ),
+    );
   }
 
   @override
@@ -137,7 +171,11 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
           hint: 'Ketuk dua kali untuk kembali ke halaman utama',
           button: true,
           child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Color(0xFFFFD700), size: 32),
+            icon: const Icon(
+              Icons.arrow_back,
+              color: Color(0xFFFFD700),
+              size: 32,
+            ),
             onPressed: () {
               ref.read(hapticServiceProvider).vibrateClick();
               ref.read(ttsServiceProvider).stop();
@@ -147,7 +185,10 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
         ),
         title: const Text(
           'Daftar Bantuan Saya',
-          style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Color(0xFFFFD700),
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
       ),
@@ -156,14 +197,19 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
           if (tickets.isEmpty) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.all(24),
                 child: Semantics(
-                  label: 'Riwayat tiket kosong. Anda belum memiliki tiket pengajuan bantuan.',
+                  label:
+                      'Riwayat tiket kosong. Anda belum memiliki tiket pengajuan bantuan.',
                   focused: true,
                   child: const Text(
-                    'Belum Ada Pengajuan Bantuan\n\nKetuk tombol melayang di pojok kanan bawah untuk membuat tiket pertama Anda.',
+                    'Belum Ada Pengajuan Bantuan\n\n'
+                    'Ketuk tombol melayang di pojok kanan bawah untuk membuat tiket pertama Anda.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, fontSize: 18),
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 18,
+                    ),
                   ),
                 ),
               ),
@@ -171,7 +217,7 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             itemCount: tickets.length,
             itemBuilder: (context, index) {
               final ticket = tickets[index];
@@ -179,9 +225,7 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
               final statusColor = _mapStatusColor(ticket.status);
               final formattedDate = _formatDate(ticket.createdAt);
 
-              // Teks Semantics terpadu agar dibaca sekaligus oleh pembaca layar
-              final semanticsLabel = 
-                  'Kebutuhan bantuan: ${ticket.description}. '
+              final semanticsLabel = 'Kebutuhan bantuan: ${ticket.description}. '
                   'Status tiket: $statusText. '
                   'Dibuat pada tanggal: $formattedDate.';
 
@@ -196,30 +240,45 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              formattedDate,
-                              style: const TextStyle(color: Colors.white54, fontSize: 13),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: statusColor.withAlpha(40),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: statusColor, width: 1),
-                              ),
+                            Flexible(
                               child: Text(
-                                statusText.toUpperCase(),
-                                style: TextStyle(
-                                  color: statusColor,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
+                                formattedDate,
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withAlpha(40),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: statusColor,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  statusText.toUpperCase(),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: statusColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
@@ -235,26 +294,62 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
                           ),
                         ),
                         const SizedBox(height: 16),
-
-                        // Baris Aksi CRUD (Edit & Delete) dengan tombol berukuran aksesibel
+                        Semantics(
+                          label: 'Tombol Buka Detail Tiket Bantuan',
+                          hint:
+                              'Ketuk dua kali untuk melihat pesan koordinasi dari relawan.',
+                          button: true,
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFFFD700),
+                                side: const BorderSide(
+                                  color: Color(0xFFFFD700),
+                                  width: 1.5,
+                                ),
+                              ),
+                              icon: const Icon(Icons.chat_bubble_outline),
+                              label: const Text(
+                                'BUKA DETAIL',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              onPressed: () => _openDetail(ticket),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         if (ticket.status == HelpRequestStatus.pending)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               Semantics(
                                 label: 'Tombol Ubah Deskripsi Tiket',
-                                hint: 'Ketuk dua kali untuk mengedit kebutuhan tiket bantuan Anda.',
+                                hint:
+                                    'Ketuk dua kali untuk mengedit kebutuhan tiket bantuan Anda.',
                                 button: true,
                                 child: SizedBox(
                                   width: 64,
                                   height: 64,
                                   child: IconButton(
-                                    icon: const Icon(Icons.edit, color: Color(0xFFFFD700), size: 28),
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      color: Color(0xFFFFD700),
+                                      size: 28,
+                                    ),
                                     onPressed: () {
-                                      ref.read(hapticServiceProvider).vibrateClick();
+                                      ref
+                                          .read(hapticServiceProvider)
+                                          .vibrateClick();
                                       Navigator.of(context).push(
                                         MaterialPageRoute<void>(
-                                          builder: (_) => EditHelpRequestScreen(helpRequest: ticket),
+                                          builder: (_) => EditHelpRequestScreen(
+                                            helpRequest: ticket,
+                                          ),
                                         ),
                                       );
                                     },
@@ -264,14 +359,20 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
                               const SizedBox(width: 16),
                               Semantics(
                                 label: 'Tombol Hapus Tiket Bantuan',
-                                hint: 'Ketuk dua kali untuk menghapus pengajuan tiket bantuan ini secara permanen.',
+                                hint:
+                                    'Ketuk dua kali untuk menghapus pengajuan tiket bantuan ini secara permanen.',
                                 button: true,
                                 child: SizedBox(
                                   width: 64,
                                   height: 64,
                                   child: IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.redAccent, size: 28),
-                                    onPressed: () => _confirmDelete(context, ticket),
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.redAccent,
+                                      size: 28,
+                                    ),
+                                    onPressed: () =>
+                                        _confirmDelete(context, ticket),
                                   ),
                                 ),
                               ),
@@ -290,27 +391,30 @@ class _HelpRequestHistoryScreenState extends ConsumerState<HelpRequestHistoryScr
             label: 'Sedang memuat data riwayat tiket bantuan Anda.',
             focused: true,
             child: const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFD700)),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                Color(0xFFFFD700),
+              ),
             ),
           ),
         ),
         error: (err, _) => Center(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(24),
             child: Semantics(
               label: 'Gagal memuat riwayat bantuan: $err',
               focused: true,
               child: Text(
                 'Terjadi Kesalahan:\n$err',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 16),
+                style: const TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 16,
+                ),
               ),
             ),
           ),
         ),
       ),
-      
-      // Floating Action Button berukuran lapang (72x72) untuk aksesibilitas mutlak
       floatingActionButton: Semantics(
         label: 'Tombol Buat Tiket Bantuan Baru',
         hint: 'Ketuk dua kali untuk masuk ke formulir pengajuan bantuan relawan.',

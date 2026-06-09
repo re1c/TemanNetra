@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'firebase_options.dart';
 import 'features/auth/domain/models/user_model.dart';
 import 'features/auth/presentation/controllers/auth_controller.dart';
@@ -9,15 +11,23 @@ import 'features/auth/presentation/screens/tunanetra_home_screen.dart';
 import 'features/auth/presentation/screens/volunteer_home_screen.dart';
 
 void main() async {
-  // Menjamin inisialisasi binding widget Flutter sebelum menjalankan kode asinkronus
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Inisialisasi Firebase menggunakan opsi multiplatform terkonfigurasi otomatis
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Diposisikan di root aplikasi untuk mendukung manajemen state terdistribusi Riverpod
+  const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  const supabasePublishableKey =
+      String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+
+  if (supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty) {
+    await Supabase.initialize(
+      url: supabaseUrl,
+      publishableKey: supabasePublishableKey,
+    );
+  }
+
   runApp(
     const ProviderScope(
       child: TemanNetraApp(),
@@ -30,38 +40,32 @@ class TemanNetraApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Memantau status sesi pengguna secara reaktif untuk memicu routing otomatis.
     final authState = ref.watch(authControllerProvider);
 
     return MaterialApp(
       title: 'TemanNetra',
       debugShowCheckedModeBanner: false,
-      
-      // Tema standard dengan kontras tinggi khusus low vision (WCAG 2.2 compliant)
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFFD700), // Warna aksen kuning terang untuk visibilitas tinggi
-          brightness: Brightness.dark,       // Latar belakang gelap bawaan untuk mengurangi ketegangan mata
+          seedColor: const Color(0xFFFFD700),
+          brightness: Brightness.dark,
           primary: const Color(0xFFFFD700),
           surface: const Color(0xFF121212),
         ),
-        
-        // Memastikan ukuran area ketuk (tap targets) tombol minimum memenuhi standar aksesibilitas
         materialTapTargetSize: MaterialTapTargetSize.padded,
       ),
-      
       home: authState.when(
         data: (user) {
           if (user == null) {
             return const LoginScreen();
           }
-          // Mengarahkan pengguna secara reaktif ke layar beranda spesifik berdasarkan perannya.
+
           if (user.role == UserRole.tunanetra) {
             return const TunanetraHomeScreen();
-          } else {
-            return const VolunteerHomeScreen();
           }
+
+          return const VolunteerHomeScreen();
         },
         loading: () => const Scaffold(
           body: Center(
@@ -85,4 +89,3 @@ class TemanNetraApp extends ConsumerWidget {
     );
   }
 }
-

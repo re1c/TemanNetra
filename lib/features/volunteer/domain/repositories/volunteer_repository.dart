@@ -18,4 +18,9 @@ abstract class VolunteerRepository {
     required String requestId,
     required String messageText,
   });
+
+  Future<void> sendVoiceMessage({
+    required String requestId,
+    required String voicePath,
+  });
 }

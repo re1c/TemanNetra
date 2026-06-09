@@ -151,6 +151,7 @@ classDiagram
         <<interface>>
         +getMyHelpRequests() Stream~List~HelpRequestModel~~
         +createHelpRequest(String description) Future~void~
+        +getOrCreateActiveHelpRequest() Future~HelpRequestModel~
         +updateHelpRequestDescription(String id, String description) Future~void~
         +deleteHelpRequest(String id) Future~void~
     }
@@ -158,11 +159,14 @@ classDiagram
     class HelpRequestRepositoryImpl {
         -_firestore FirebaseFirestore
         -_auth FirebaseAuth
+        +getOrCreateActiveHelpRequest() Future~HelpRequestModel~
+        -_createHelpRequestWithDescription(String description) Future~HelpRequestModel~
     }
 
     class HelpRequestController {
         +build() Stream~List~HelpRequestModel~~
         +createTicket(String description) Future~void~
+        +getOrCreateActiveHelpRequest() Future~HelpRequestModel~
         +updateTicket(String id, String description) Future~void~
         +deleteTicket(String id) Future~void~
     }
@@ -187,12 +191,15 @@ classDiagram
         +resolveHelpRequest(String requestId) Future~void~
         +cancelClaim(String requestId) Future~void~
         +sendTextMessage(String requestId, String messageText) Future~void~
+        +sendVoiceMessage(String requestId, String voicePath) Future~void~
     }
 
     class VolunteerRepositoryImpl {
         -_firestore FirebaseFirestore
         -_auth FirebaseAuth
+        -_voiceNoteStorageService VoiceNoteStorageService
         -_getCurrentVolunteerName(String uid) Future~String~
+        -_validateTicketClaimedByCurrentVolunteer(DocumentReference ticketDocRef, String currentUserId) Future~void~
     }
 
     class VolunteerController {
@@ -201,6 +208,30 @@ classDiagram
         +resolveHelpRequest(String requestId) Future~void~
         +cancelClaim(String requestId) Future~void~
         +sendTextMessage(String requestId, String messageText) Future~void~
+        +sendVoiceMessage(String requestId, String voicePath) Future~void~
+    }
+
+    class VoiceNoteStorageService {
+        -_clientOverride SupabaseClient?
+        -_uuid Uuid
+        +uploadVoiceNote(String requestId, String localFilePath) Future~String~
+        -_sanitizePathSegment(String value) String
+    }
+
+    class AudioMessagePlayer {
+        <<stateful>>
+        +String audioUrl
+        +bool autoPlay
+        +VoidCallback? onAutoPlayStarted
+    }
+
+    class VoiceNoteButton {
+        <<stateful>>
+        +Future~void~ Function(String) onVoiceReady
+        +bool isDisabled
+        +bool fullWidth
+        +double height
+        +double fontSize
     }
 
     class CreateHelpRequestScreen {
@@ -221,6 +252,11 @@ classDiagram
 
     class ActiveClaimScreen {
         <<stateless>>
+    }
+
+    class HelpRequestDetailScreen {
+        <<stateful>>
+        +HelpRequestModel ticket
     }
 
     UserModel --> UserRole
@@ -247,6 +283,7 @@ classDiagram
     VolunteerRepositoryImpl ..|> VolunteerRepository
     VolunteerRepositoryImpl --> HelpRequestModel
     VolunteerRepositoryImpl --> ChatMessageModel
+    VolunteerRepositoryImpl --> VoiceNoteStorageService
     VolunteerController --> VolunteerRepository
     VolunteerController --> HelpRequestModel
     VolunteerController --> ChatMessageModel
@@ -257,6 +294,16 @@ classDiagram
     VolunteerDashboardScreen --> VolunteerController : ref.read
     ActiveClaimScreen --> VolunteerController : ref.read
     ActiveClaimScreen --> ChatMessageModel : ref.watch(chatMessages)
+    ActiveClaimScreen --> AudioMessagePlayer
+    ActiveClaimScreen --> VoiceNoteButton
+
+    HelpRequestDetailScreen --> HelpRequestModel
+    HelpRequestDetailScreen --> ChatMessageModel : StreamBuilder
+    HelpRequestDetailScreen --> VoiceNoteStorageService
+    HelpRequestDetailScreen --> AudioMessagePlayer
+    HelpRequestDetailScreen --> VoiceNoteButton
+    HelpRequestDetailScreen --> TtsService : ref.read
+    HelpRequestDetailScreen --> HapticService : ref.read
 ```
 
 ## 🛠️ Local Development Setup
