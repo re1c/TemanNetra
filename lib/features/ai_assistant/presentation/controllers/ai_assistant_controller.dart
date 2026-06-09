@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -15,6 +16,11 @@ part 'ai_assistant_controller.g.dart';
 AiRepository aiRepository(AiRepositoryRef ref) {
   const apiKey = String.fromEnvironment('GEMINI_API_KEY');
   if (apiKey.isEmpty) {
+    developer.log(
+      'Peringatan: GEMINI_API_KEY tidak dikonfigurasi di environment.',
+      name: 'AiRepositoryProvider',
+      error: 'GEMINI_API_KEY is empty',
+    );
     throw Exception(
       'Kunci API Gemini belum terkonfigurasi. '
       'Pastikan argumen --dart-define=GEMINI_API_KEY=... telah disertakan saat menjalankan aplikasi.'
@@ -44,7 +50,13 @@ class AiAssistantController extends _$AiAssistantController {
       try {
         final repository = ref.read(aiRepositoryProvider);
         return await repository.analyzeImage(imageBytes);
-      } on GenerativeAIException catch (e) {
+      } on GenerativeAIException catch (e, stackTrace) {
+        developer.log(
+          'GenerativeAIException ditangkap di controller',
+          name: 'AiAssistantController',
+          error: e,
+          stackTrace: stackTrace,
+        );
         // Melakukan pemetaan error batasan kuota (HTTP 429 / Quota Exhausted)
         // secara graceful untuk diubah menjadi pesan instruksi audio yang ramah tunanetra.
         if (e.message.contains('ResourceExhausted') || e.message.contains('429')) {
@@ -54,7 +66,13 @@ class AiAssistantController extends _$AiAssistantController {
           );
         }
         rethrow;
-      } catch (e) {
+      } catch (e, stackTrace) {
+        developer.log(
+          'Error tidak terduga ditangkap di controller',
+          name: 'AiAssistantController',
+          error: e,
+          stackTrace: stackTrace,
+        );
         // Menangkap kegagalan koneksi umum atau error runtime tak terduga.
         throw Exception(
           'Koneksi internet bermasalah. Pastikan perangkat Anda terhubung ke internet '

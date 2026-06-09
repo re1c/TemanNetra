@@ -321,19 +321,17 @@ Place your project config files in:
 * **Android**: `android/app/google-services.json`
 * **iOS**: `ios/Runner/GoogleService-Info.plist`
 
-### 3. Setup Gemini API Key
-Create a `.env` file in the root directory:
-```properties
-GEMINI_API_KEY=your_gemini_api_key_here
-```
-
-### 4. Build Code Generation
+### 3. Build Code Generation
 ```bash
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 ```
 
-### 5. Run the Application
+### 4. Run the Application
+Run the app using the required `--dart-define` flags for Supabase and the Gemini API key:
 ```bash
-flutter run
+flutter run \
+  --dart-define=SUPABASE_URL="YOUR_SUPABASE_URL" \
+  --dart-define=SUPABASE_PUBLISHABLE_KEY="YOUR_SUPABASE_ANON_KEY" \
+  --dart-define=GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 ```
