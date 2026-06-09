@@ -93,6 +93,15 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
 
     try {
       await _audioPlayer.play(UrlSource(widget.audioUrl));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memutar audio: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -113,6 +122,8 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
 
     try {
       await _audioPlayer.stop();
+    } catch (_) {
+      // Abaikan jika gagal menghentikan audio yang tidak aktif
     } finally {
       if (mounted) {
         setState(() {

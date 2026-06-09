@@ -16,7 +16,15 @@ class VoiceNoteStorageService {
         _uuid = uuid ?? const Uuid();
 
   SupabaseClient get _client {
-    return _clientOverride ?? Supabase.instance.client;
+    if (_clientOverride != null) return _clientOverride;
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      throw Exception(
+        'Penyimpanan suara (Supabase) belum terinisialisasi. '
+        'Pastikan argumen --dart-define=SUPABASE_URL=... dan --dart-define=SUPABASE_PUBLISHABLE_KEY=... telah disertakan saat menjalankan aplikasi.'
+      );
+    }
   }
 
   Future<String> uploadVoiceNote({
