@@ -14,6 +14,12 @@ part 'ai_assistant_controller.g.dart';
 @riverpod
 AiRepository aiRepository(AiRepositoryRef ref) {
   const apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  if (apiKey.isEmpty) {
+    throw Exception(
+      'Kunci API Gemini belum terkonfigurasi. '
+      'Pastikan argumen --dart-define=GEMINI_API_KEY=... telah disertakan saat menjalankan aplikasi.'
+    );
+  }
   return AiRepositoryImpl(apiKey: apiKey);
 }
 
