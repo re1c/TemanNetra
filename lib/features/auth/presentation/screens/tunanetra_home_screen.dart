@@ -151,75 +151,70 @@ class _TunanetraHomeScreenState extends ConsumerState<TunanetraHomeScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Semantics(
-                label:
-                    'Selamat datang di TemanNetra. Pilih Asisten AI atau Bantuan Relawan.',
-                focused: true,
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Halo, TemanNetra',
-                      style: TextStyle(
-                        color: _primaryYellow,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        height: 1.15,
-                      ),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          children: [
+            Semantics(
+              label:
+                  'Selamat datang di TemanNetra. Pilih Asisten AI atau Bantuan Relawan.',
+              focused: true,
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Halo, TemanNetra',
+                    style: TextStyle(
+                      color: _primaryYellow,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      height: 1.15,
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Pilih bantuan yang Anda butuhkan.',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 18,
-                        height: 1.35,
-                      ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Pilih bantuan yang Anda butuhkan.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 18,
+                      height: 1.35,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 22),
-              Expanded(
-                child: _LargeHomeActionCard(
-                  title: 'Buka\nAsisten AI',
-                  description:
-                      'Gunakan kamera untuk mengenali objek dan membaca teks di sekitar Anda.',
-                  backgroundColor: _primaryYellow,
-                  foregroundColor: Colors.black,
-                  borderColor: _primaryYellow,
-                  semanticLabel:
-                      'Buka Asisten AI. Gunakan kamera untuk mengenali objek dan membaca teks di sekitar Anda.',
-                  isLoading: false,
-                  onPressed: _openAiAssistant,
-                ),
-              ),
-              const SizedBox(height: 18),
-              Expanded(
-                child: _LargeHomeActionCard(
-                  title: 'Minta Bantuan\nRelawan',
-                  description:
-                      'Tekan sekali untuk langsung membuat permintaan bantuan relawan.',
-                  backgroundColor: _cardColor,
-                  foregroundColor: _primaryYellow,
-                  borderColor: _primaryYellow,
-                  semanticLabel:
-                      'Minta bantuan relawan. Tombol ini langsung membuat permintaan bantuan.',
-                  isLoading: _isRequestingVolunteer,
-                  onPressed: _requestVolunteerHelp,
-                ),
-              ),
-              const SizedBox(height: 18),
-              _HistoryBarButton(
-                onPressed: _openHelpHistory,
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 22),
+            _LargeHomeActionCard(
+              height: 245,
+              title: 'Buka\nAsisten AI',
+              description:
+                  'Gunakan kamera untuk mengenali objek dan membaca teks di sekitar Anda.',
+              backgroundColor: _primaryYellow,
+              foregroundColor: Colors.black,
+              borderColor: _primaryYellow,
+              semanticLabel:
+                  'Buka Asisten AI. Gunakan kamera untuk mengenali objek dan membaca teks di sekitar Anda.',
+              isLoading: false,
+              onPressed: _openAiAssistant,
+            ),
+            const SizedBox(height: 18),
+            _LargeHomeActionCard(
+              height: 245,
+              title: 'Minta Bantuan\nRelawan',
+              description:
+                  'Tekan sekali untuk langsung membuat permintaan bantuan relawan.',
+              backgroundColor: _cardColor,
+              foregroundColor: _primaryYellow,
+              borderColor: _primaryYellow,
+              semanticLabel:
+                  'Minta bantuan relawan. Tombol ini langsung membuat permintaan bantuan.',
+              isLoading: _isRequestingVolunteer,
+              onPressed: _requestVolunteerHelp,
+            ),
+            const SizedBox(height: 18),
+            _HistoryBarButton(
+              onPressed: _openHelpHistory,
+            ),
+          ],
         ),
       ),
     );
@@ -227,6 +222,7 @@ class _TunanetraHomeScreenState extends ConsumerState<TunanetraHomeScreen> {
 }
 
 class _LargeHomeActionCard extends StatelessWidget {
+  final double height;
   final String title;
   final String description;
   final Color backgroundColor;
@@ -237,6 +233,7 @@ class _LargeHomeActionCard extends StatelessWidget {
   final VoidCallback onPressed;
 
   const _LargeHomeActionCard({
+    required this.height,
     required this.title,
     required this.description,
     required this.backgroundColor,
@@ -253,52 +250,57 @@ class _LargeHomeActionCard extends StatelessWidget {
       label: semanticLabel,
       hint: 'Ketuk dua kali untuk membuka.',
       button: true,
-      child: Material(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(32),
-        child: InkWell(
+      child: SizedBox(
+        height: height,
+        child: Material(
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(32),
-          onTap: isLoading ? null : onPressed,
-          child: Container(
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(
-                color: borderColor,
-                width: 2.5,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(32),
+            onTap: isLoading ? null : onPressed,
+            child: Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(
+                  color: borderColor,
+                  width: 2.5,
+                ),
               ),
-            ),
-            child: isLoading
-                ? Center(
-                    child: CircularProgressIndicator(
-                      color: foregroundColor,
-                      strokeWidth: 4,
+              child: isLoading
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: foregroundColor,
+                        strokeWidth: 4,
+                      ),
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: foregroundColor,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            height: 1.08,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          description,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: foregroundColor.withAlpha(220),
+                            fontSize: 17,
+                            height: 1.28,
+                          ),
+                        ),
+                      ],
                     ),
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: foregroundColor,
-                          fontSize: 34,
-                          fontWeight: FontWeight.bold,
-                          height: 1.12,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        description,
-                        style: TextStyle(
-                          color: foregroundColor.withAlpha(220),
-                          fontSize: 18,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ),
+            ),
           ),
         ),
       ),
