@@ -28,7 +28,7 @@ dependencies:
   supabase_flutter: ^2.14.1
 
   # AI & Gemini API
-  google_generative_ai: ^0.4.0
+  google_generative_ai: ^0.4.7
 
   # Hardware, Media, & Utilities
   camera: ^0.10.6
