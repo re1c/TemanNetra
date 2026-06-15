@@ -1,5 +1,5 @@
 import 'dart:developer' as developer;
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../data/repositories/ai_repository_impl.dart';
@@ -21,6 +21,7 @@ AiRepository aiRepository(AiRepositoryRef ref) {
       name: 'AiRepositoryProvider',
       error: 'GEMINI_API_KEY is empty',
     );
+    debugPrint('=== TEMANNETRA AI CONFIG ERROR ===\nGEMINI_API_KEY is empty. Please run with --dart-define=GEMINI_API_KEY=...');
     throw Exception(
       'Kunci API Gemini belum terkonfigurasi. '
       'Pastikan argumen --dart-define=GEMINI_API_KEY=... telah disertakan saat menjalankan aplikasi.'
@@ -57,6 +58,10 @@ class AiAssistantController extends _$AiAssistantController {
           error: e,
           stackTrace: stackTrace,
         );
+        debugPrint('======================================================');
+        debugPrint('🔴 TEMANNETRA GEMINI API ERROR (GenerativeAIException):');
+        debugPrint(e.toString());
+        debugPrint('======================================================');
         // Melakukan pemetaan error batasan kuota (HTTP 429 / Quota Exhausted)
         // secara graceful untuk diubah menjadi pesan instruksi audio yang ramah tunanetra.
         if (e.message.contains('ResourceExhausted') || e.message.contains('429')) {
@@ -73,6 +78,11 @@ class AiAssistantController extends _$AiAssistantController {
           error: e,
           stackTrace: stackTrace,
         );
+        debugPrint('======================================================');
+        debugPrint('🔴 TEMANNETRA UNEXPECTED ERROR (General Exception):');
+        debugPrint(e.toString());
+        debugPrint(stackTrace.toString());
+        debugPrint('======================================================');
         // Menangkap kegagalan koneksi umum atau error runtime tak terduga.
         throw Exception(
           'Koneksi internet bermasalah. Pastikan perangkat Anda terhubung ke internet '

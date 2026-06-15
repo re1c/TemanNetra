@@ -10,7 +10,7 @@ class AiRepositoryImpl implements AiRepository {
 
   AiRepositoryImpl({required String apiKey})
       : _model = GenerativeModel(
-          model: 'gemini-1.5-flash', // Latensi super rendah dan multimodal hemat energi
+          model: 'gemini-2.0-flash', // Latensi super rendah dan multimodal hemat energi
           apiKey: apiKey,
           generationConfig: GenerationConfig(
             responseMimeType: 'application/json', // Memaksa model hanya mengembalikan struktur JSON valid
