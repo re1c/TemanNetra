@@ -61,3 +61,13 @@ key.properties
 .flutter-plugins
 .flutter-plugins-dependencies
 
+# Private Keys & Service Account Files
+*-adminsdk-*.json
+service-account.json
+credentials.json
+
+# Supabase Local Cache & Temp
+.supabase/
+supabase/.temp/
+
+
