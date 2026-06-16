@@ -27,6 +27,9 @@ dependencies:
   # Supabase Storage for voice notes
   supabase_flutter: ^2.14.1
 
+  # HTTP Client
+  http: ^1.6.0
+
   # AI & Gemini API
   google_generative_ai: ^0.4.7
 

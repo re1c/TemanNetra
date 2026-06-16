@@ -29,13 +29,13 @@ final aiRepositoryProvider = AutoDisposeProvider<AiRepository>.internal(
 // ignore: unused_element
 typedef AiRepositoryRef = AutoDisposeProviderRef<AiRepository>;
 String _$aiAssistantControllerHash() =>
-    r'01a52e5179aa31e4a63200cb25bac8a46770d243';
+    r'6bfc18287e474d3cce67746c367281edc8ea542f';
 
 /// Pengendali state asisten AI reaktif berbasis AsyncNotifier.
 ///
-/// Mengelola siklus hidup asinkronus dari permintaan pemrosesan gambar ke Gemini API.
+/// Mengelola siklus hidup asinkronus dari permintaan pemrosesan gambar ke Groq API.
 /// Kelas ini memetakan hasil sukses, status loading, dan penanganan batasan kuota
-/// (Graceful Degradation) secara reaktif untuk dibaca oleh lapisan UI aksesibel.
+/// secara reaktif untuk dibaca oleh lapisan UI aksesibel.
 ///
 /// Copied from [AiAssistantController].
 @ProviderFor(AiAssistantController)
