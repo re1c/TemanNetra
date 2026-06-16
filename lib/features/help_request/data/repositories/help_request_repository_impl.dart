@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:developer' as developer;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../domain/models/help_request_model.dart';
 import '../../domain/repositories/help_request_repository.dart';
@@ -113,6 +115,27 @@ class HelpRequestRepositoryImpl implements HelpRequestRepository {
     };
 
     await docRef.set(data);
+
+    try {
+      await Supabase.instance.client.functions.invoke(
+        'send-help-notification',
+        body: {
+          'title': 'Bantuan Baru Masuk',
+          'body': 'Seorang pengguna tunanetra membutuhkan bantuan Anda.',
+        },
+      );
+      developer.log(
+        'Sukses memicu push notification bantuan baru via Supabase Edge Functions',
+        name: 'HelpRequestRepositoryImpl',
+      );
+    } catch (e, stackTrace) {
+      developer.log(
+        'Gagal memicu push notification bantuan baru',
+        name: 'HelpRequestRepositoryImpl',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
 
     return HelpRequestModel.fromMap(data, docRef.id);
   }

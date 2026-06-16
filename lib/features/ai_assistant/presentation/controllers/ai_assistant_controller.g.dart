@@ -6,7 +6,7 @@ part of 'ai_assistant_controller.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$aiRepositoryHash() => r'd3bfdf63526e1dbdbca873a66cc6a161960c4b76';
+String _$aiRepositoryHash() => r'ce775e4175f81bff7a9c7c98ec1088ab70079dc7';
 
 /// Penyedia repositori asisten AI cerdas terkonfigurasi.
 ///
@@ -29,7 +29,7 @@ final aiRepositoryProvider = AutoDisposeProvider<AiRepository>.internal(
 // ignore: unused_element
 typedef AiRepositoryRef = AutoDisposeProviderRef<AiRepository>;
 String _$aiAssistantControllerHash() =>
-    r'b197a17eca6a844a8e00a1a97433e54f03cc2620';
+    r'01a52e5179aa31e4a63200cb25bac8a46770d243';
 
 /// Pengendali state asisten AI reaktif berbasis AsyncNotifier.
 ///

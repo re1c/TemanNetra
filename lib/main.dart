@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'firebase_options.dart';
+import 'core/services/notification_service.dart';
 import 'features/auth/domain/models/user_model.dart';
 import 'features/auth/presentation/controllers/auth_controller.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
@@ -40,6 +41,9 @@ class TemanNetraApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Inisialisasi layanan notifikasi FCM saat aplikasi dimulai
+    ref.watch(notificationServiceProvider);
+
     final authState = ref.watch(authControllerProvider);
 
     return MaterialApp(
