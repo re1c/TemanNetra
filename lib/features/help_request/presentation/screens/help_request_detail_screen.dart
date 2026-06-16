@@ -1,15 +1,14 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/models/chat_message_model.dart';
 import '../../../../core/utils/haptic_service.dart';
 import '../../../../core/utils/tts_service.dart';
-import '../../../volunteer/data/services/voice_note_storage_service.dart';
-import '../../../volunteer/domain/models/chat_message_model.dart';
+import '../../../../core/widgets/voice_note_button.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../volunteer/presentation/widgets/audio_message_player.dart';
-import '../../../volunteer/presentation/widgets/voice_note_button.dart';
 import '../../domain/models/help_request_model.dart';
+import '../controllers/help_request_controller.dart';
 
 class HelpRequestDetailScreen extends ConsumerStatefulWidget {
   final HelpRequestModel ticket;
@@ -27,9 +26,6 @@ class HelpRequestDetailScreen extends ConsumerStatefulWidget {
 class _HelpRequestDetailScreenState
     extends ConsumerState<HelpRequestDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final VoiceNoteStorageService _voiceNoteStorageService =
-      VoiceNoteStorageService();
-
   final Set<String> _autoPlayedAudioMessageIds = <String>{};
 
   bool _isSending = false;
@@ -49,20 +45,6 @@ class _HelpRequestDetailScreenState
   void dispose() {
     _messageController.dispose();
     super.dispose();
-  }
-
-  Stream<List<ChatMessageModel>> _watchMessages() {
-    return FirebaseFirestore.instance
-        .collection('help_requests')
-        .doc(widget.ticket.id)
-        .collection('messages')
-        .orderBy('createdAt', descending: false)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return ChatMessageModel.fromMap(doc.data(), doc.id);
-      }).toList();
-    });
   }
 
   String? _findAutoPlayableIncomingVoiceNoteId(
@@ -87,13 +69,6 @@ class _HelpRequestDetailScreenState
     return null;
   }
 
-  Future<String> _getCurrentUserName(String uid) async {
-    final userDoc =
-        await FirebaseFirestore.instance.collection('users').doc(uid).get();
-
-    return userDoc.data()?['name'] as String? ?? 'Pengguna TemanNetra';
-  }
-
   Future<void> _sendTextMessage() async {
     final message = _messageController.text.trim();
 
@@ -103,37 +78,15 @@ class _HelpRequestDetailScreenState
       return;
     }
 
-    final currentUser = FirebaseAuth.instance.currentUser;
-
-    if (currentUser == null) {
-      ref.read(hapticServiceProvider).vibrateError();
-      ref.read(ttsServiceProvider).speak(
-            'Sesi pengguna tidak valid. Silakan masuk kembali.',
-          );
-      return;
-    }
-
     setState(() {
       _isSending = true;
     });
 
     try {
-      final senderName = await _getCurrentUserName(currentUser.uid);
-
-      final messageDoc = FirebaseFirestore.instance
-          .collection('help_requests')
-          .doc(widget.ticket.id)
-          .collection('messages')
-          .doc();
-
-      await messageDoc.set({
-        'id': messageDoc.id,
-        'senderId': currentUser.uid,
-        'senderName': senderName,
-        'messageText': message,
-        'messageUrl': null,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      await ref.read(helpRequestControllerProvider.notifier).sendTextMessage(
+            requestId: widget.ticket.id,
+            messageText: message,
+          );
 
       _messageController.clear();
 
@@ -161,42 +114,15 @@ class _HelpRequestDetailScreenState
   }
 
   Future<void> _sendVoiceMessage(String voicePath) async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-
-    if (currentUser == null) {
-      ref.read(hapticServiceProvider).vibrateError();
-      ref.read(ttsServiceProvider).speak(
-            'Sesi pengguna tidak valid. Silakan masuk kembali.',
-          );
-      return;
-    }
-
     setState(() {
       _isSending = true;
     });
 
     try {
-      final senderName = await _getCurrentUserName(currentUser.uid);
-
-      final voiceUrl = await _voiceNoteStorageService.uploadVoiceNote(
-        requestId: widget.ticket.id,
-        localFilePath: voicePath,
-      );
-
-      final messageDoc = FirebaseFirestore.instance
-          .collection('help_requests')
-          .doc(widget.ticket.id)
-          .collection('messages')
-          .doc();
-
-      await messageDoc.set({
-        'id': messageDoc.id,
-        'senderId': currentUser.uid,
-        'senderName': senderName,
-        'messageText': null,
-        'messageUrl': voiceUrl,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      await ref.read(helpRequestControllerProvider.notifier).sendVoiceMessage(
+            requestId: widget.ticket.id,
+            voicePath: voicePath,
+          );
 
       ref.read(hapticServiceProvider).vibrateSuccess();
       ref.read(ttsServiceProvider).speak('Voice note berhasil dikirim.');
@@ -319,25 +245,19 @@ class _HelpRequestDetailScreenState
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: Colors.white12),
               ),
-              child: StreamBuilder<List<ChatMessageModel>>(
-                stream: _watchMessages(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
+              child: ref.watch(helpRequestMessagesProvider(widget.ticket.id)).when(
+                    loading: () => const Center(
                       child: CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation<Color>(
                           Color(0xFFFFD700),
                         ),
                       ),
-                    );
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(
+                    ),
+                    error: (error, _) => Center(
                       child: Padding(
                         padding: const EdgeInsets.all(18),
                         child: Text(
-                          'Gagal memuat pesan:\n${snapshot.error}',
+                          'Gagal memuat pesan:\n$error',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Colors.redAccent,
@@ -346,54 +266,52 @@ class _HelpRequestDetailScreenState
                           ),
                         ),
                       ),
-                    );
-                  }
+                    ),
+                    data: (messages) {
+                      final currentUserId = ref.read(authControllerProvider).valueOrNull?.uid;
+                      final autoPlayMessageId = _findAutoPlayableIncomingVoiceNoteId(
+                        messages,
+                        currentUserId,
+                      );
 
-                  final messages = snapshot.data ?? [];
-                  final currentUser = FirebaseAuth.instance.currentUser;
-                  final autoPlayMessageId = _findAutoPlayableIncomingVoiceNoteId(
-                    messages,
-                    currentUser?.uid,
-                  );
-
-                  if (messages.isEmpty) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(18),
-                        child: Text(
-                          'Belum ada pesan koordinasi.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white60,
-                            fontSize: 18,
-                            height: 1.4,
+                      if (messages.isEmpty) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(18),
+                            child: Text(
+                              'Belum ada pesan koordinasi.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white60,
+                                fontSize: 18,
+                                height: 1.4,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    );
-                  }
+                        );
+                      }
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.all(14),
-                    itemCount: messages.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final message = messages[index];
-                      final isMine = message.senderId == currentUser?.uid;
-                      final shouldAutoPlay = message.id == autoPlayMessageId;
+                      return ListView.separated(
+                        padding: const EdgeInsets.all(14),
+                        itemCount: messages.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final message = messages[index];
+                          final isMine = message.senderId == currentUserId;
+                          final shouldAutoPlay = message.id == autoPlayMessageId;
 
-                      return _MessageBubble(
-                        message: message,
-                        isMine: isMine,
-                        autoPlay: shouldAutoPlay,
-                        onAutoPlayStarted: () {
-                          _autoPlayedAudioMessageIds.add(message.id);
+                          return _MessageBubble(
+                            message: message,
+                            isMine: isMine,
+                            autoPlay: shouldAutoPlay,
+                            onAutoPlayStarted: () {
+                              _autoPlayedAudioMessageIds.add(message.id);
+                            },
+                          );
                         },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
             ),
           ),
           if (canSendMessage)
@@ -448,7 +366,7 @@ class _TicketSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       label:
-          'Detail bantuan. Deskripsi: $description. Status: $statusText. Relawan: ${volunteerName ?? 'belum ada relawan'}.',
+          'Detail bantuan. Deskripsi: $description. Status: $statusText. Relawan: ${volunteerName ?? "belum ada relawan"}.',
       container: true,
       child: Card(
         color: const Color(0xFF1E1E1E),
@@ -664,7 +582,7 @@ class _MessageBubble extends StatelessWidget {
     return Semantics(
       label: hasAudio
           ? 'Voice note dari ${message.senderName}.'
-          : 'Pesan dari ${message.senderName}. Isi pesan: ${messageText ?? 'Pesan kosong'}.',
+          : 'Pesan dari ${message.senderName}. Isi pesan: ${messageText ?? "Pesan kosong"}.',
       container: true,
       child: Align(
         alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,

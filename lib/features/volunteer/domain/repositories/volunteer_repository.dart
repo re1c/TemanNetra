@@ -1,5 +1,5 @@
 import 'package:temannetra/features/help_request/domain/models/help_request_model.dart';
-import 'package:temannetra/features/volunteer/domain/models/chat_message_model.dart';
+import 'package:temannetra/core/models/chat_message_model.dart';
 
 abstract class VolunteerRepository {
   Stream<List<HelpRequestModel>> watchPendingHelpRequests();

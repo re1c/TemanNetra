@@ -2,10 +2,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:temannetra/features/help_request/domain/models/help_request_model.dart';
-import 'package:temannetra/features/volunteer/domain/models/chat_message_model.dart';
+import 'package:temannetra/core/models/chat_message_model.dart';
 import 'package:temannetra/features/volunteer/presentation/controllers/volunteer_controller.dart';
 import 'package:temannetra/features/volunteer/presentation/widgets/audio_message_player.dart';
-import 'package:temannetra/features/volunteer/presentation/widgets/voice_note_button.dart';
+import 'package:temannetra/core/widgets/voice_note_button.dart';
 
 class ActiveClaimScreen extends ConsumerWidget {
   const ActiveClaimScreen({super.key});
