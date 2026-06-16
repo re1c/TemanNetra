@@ -1,48 +1,78 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:temannetra/features/auth/presentation/controllers/auth_controller.dart';
-import 'package:temannetra/features/help_request/domain/models/help_request_model.dart';
-import 'package:temannetra/features/volunteer/presentation/controllers/volunteer_controller.dart';
-import 'package:temannetra/features/volunteer/presentation/screens/active_claim_screen.dart';
 
-class VolunteerDashboardScreen extends ConsumerWidget {
+import '../../../../core/utils/haptic_service.dart';
+import '../../../../core/utils/tts_service.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../help_request/domain/models/help_request_model.dart';
+import '../controllers/volunteer_controller.dart';
+import 'active_claim_screen.dart';
+
+class VolunteerDashboardScreen extends ConsumerStatefulWidget {
   const VolunteerDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VolunteerDashboardScreen> createState() =>
+      _VolunteerDashboardScreenState();
+}
+
+class _VolunteerDashboardScreenState
+    extends ConsumerState<VolunteerDashboardScreen> {
+  final Set<String> _knownPendingRequestIds = <String>{};
+
+  bool _hasInitializedPendingRequests = false;
+  bool _isNewRequestDialogOpen = false;
+
+  @override
+  Widget build(BuildContext context) {
     final pendingRequestsAsync = ref.watch(pendingHelpRequestsProvider);
     final actionState = ref.watch(volunteerControllerProvider);
 
-    ref.listen<AsyncValue<void>>(volunteerControllerProvider, (
-      previous,
-      next,
-    ) {
-      if (next.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.error.toString()),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+    ref.listen<AsyncValue<List<HelpRequestModel>>>(
+      pendingHelpRequestsProvider,
+      (previous, next) {
+        next.whenData(_handlePendingRequestsUpdate);
+      },
+    );
 
-      if (previous?.isLoading == true && next.hasValue) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tiket bantuan berhasil diklaim.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    });
+    ref.listen<AsyncValue<void>>(
+      volunteerControllerProvider,
+      (previous, next) {
+        if (next.hasError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(next.error.toString()),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+
+        if (previous?.isLoading == true && next.hasValue) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Aksi berhasil dilakukan.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      },
+    );
 
     return Scaffold(
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text('Dasbor Relawan'),
+        backgroundColor: Colors.black,
+        toolbarHeight: 68,
+        title: const Text(
+          'Dasbor Relawan',
+          style: TextStyle(
+            color: Color(0xFFFFD700),
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
         actions: [
-          IconButton(
-            tooltip: 'Klaim aktif',
-            icon: const Icon(Icons.assignment_turned_in_outlined),
+          TextButton(
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -50,20 +80,34 @@ class VolunteerDashboardScreen extends ConsumerWidget {
                 ),
               );
             },
+            child: const Text(
+              'Klaim Aktif',
+              style: TextStyle(
+                color: Color(0xFFFFD700),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-          IconButton(
-            tooltip: 'Keluar',
-            icon: const Icon(Icons.logout),
+          TextButton(
             onPressed: () {
               ref.read(authControllerProvider.notifier).signOut();
             },
+            child: const Text(
+              'Keluar',
+              style: TextStyle(
+                color: Color(0xFFFFD700),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
       body: pendingRequestsAsync.when(
         loading: () {
           return const Center(
-            child: CircularProgressIndicator(),
+            child: CircularProgressIndicator(
+              color: Color(0xFFFFD700),
+            ),
           );
         },
         error: (error, stackTrace) {
@@ -83,7 +127,7 @@ class VolunteerDashboardScreen extends ConsumerWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: requests.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              separatorBuilder: (_, _) => const SizedBox(height: 14),
               itemBuilder: (context, index) {
                 final request = requests[index];
 
@@ -102,6 +146,184 @@ class VolunteerDashboardScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  void _handlePendingRequestsUpdate(List<HelpRequestModel> requests) {
+    final currentPendingIds = requests.map((request) => request.id).toSet();
+
+    if (!_hasInitializedPendingRequests) {
+      _knownPendingRequestIds
+        ..clear()
+        ..addAll(currentPendingIds);
+
+      _hasInitializedPendingRequests = true;
+      return;
+    }
+
+    final newRequests = requests.where((request) {
+      return !_knownPendingRequestIds.contains(request.id);
+    }).toList();
+
+    _knownPendingRequestIds
+      ..clear()
+      ..addAll(currentPendingIds);
+
+    if (newRequests.isEmpty) {
+      return;
+    }
+
+    newRequests.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _showNewHelpRequestNotification(newRequests.first);
+  }
+
+  void _showNewHelpRequestNotification(HelpRequestModel request) {
+    if (_isNewRequestDialogOpen || !mounted) {
+      return;
+    }
+
+    _isNewRequestDialogOpen = true;
+
+    final requesterName = request.requesterName.trim().isEmpty
+        ? 'Pengguna TemanNetra'
+        : request.requesterName;
+
+    final description = request.description.trim().isEmpty
+        ? 'Pengguna membutuhkan bantuan relawan.'
+        : request.description;
+
+    ref.read(hapticServiceProvider).vibrateSuccess();
+    ref.read(ttsServiceProvider).speak(
+          'Ada pengguna TemanNetra membutuhkan bantuan. '
+          'Nama pengguna $requesterName. '
+          'Deskripsi bantuan: $description.',
+        );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        _isNewRequestDialogOpen = false;
+        return;
+      }
+
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E1E1E),
+            shape: RoundedRectangleBorder(
+              side: const BorderSide(
+                color: Color(0xFFFFD700),
+                width: 2,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text(
+              'Bantuan Baru Masuk',
+              style: TextStyle(
+                color: Color(0xFFFFD700),
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            content: Semantics(
+              focused: true,
+              label:
+                  'Ada bantuan baru masuk dari $requesterName. Deskripsi bantuan: $description.',
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    requesterName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 17,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Tiket baru sudah muncul di daftar paling atas.',
+                    style: TextStyle(
+                      color: Color(0xFFFFD700),
+                      fontSize: 15,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFD700),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text(
+                    'Lihat Tiket',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    side: const BorderSide(color: Colors.white38),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text(
+                    'Tutup',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ).then((_) {
+        if (mounted) {
+          setState(() {
+            _isNewRequestDialogOpen = false;
+          });
+        } else {
+          _isNewRequestDialogOpen = false;
+        }
+      });
+    });
   }
 }
 
@@ -123,48 +345,79 @@ class _PendingRequestCard extends StatelessWidget {
         : request.requesterName;
 
     final description = request.description.isEmpty
-        ? 'Tidak ada deskripsi tambahan.'
+        ? 'Pengguna membutuhkan bantuan relawan.'
         : request.description;
 
     return Semantics(
       label: 'Tiket bantuan dari $requesterName. Deskripsi: $description.',
       button: false,
       child: Card(
+        color: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(
+            color: Color(0xFFFFD700),
+            width: 1.3,
+          ),
+          borderRadius: BorderRadius.circular(18),
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
                 requesterName,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: const TextStyle(
+                  color: Color(0xFFFFD700),
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 description,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  height: 1.35,
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 'Dibuat: ${_formatCreatedAt(request.createdAt)}',
-                style: Theme.of(context).textTheme.bodySmall,
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 14,
+                ),
               ),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
-                height: 48,
+                height: 58,
                 child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFD700),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                   onPressed: isActionLoading ? null : onClaimPressed,
                   child: isActionLoading
                       ? const SizedBox.square(
-                          dimension: 20,
+                          dimension: 22,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2,
+                            strokeWidth: 3,
+                            color: Colors.black,
                           ),
                         )
-                      : const Text('Klaim Bantuan'),
+                      : const Text(
+                          'Klaim Bantuan',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -196,6 +449,11 @@ class _EmptyPendingRequestState extends StatelessWidget {
         child: Text(
           'Belum ada tiket bantuan yang menunggu relawan.',
           textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 18,
+            height: 1.4,
+          ),
         ),
       ),
     );
@@ -217,6 +475,11 @@ class _VolunteerDashboardError extends StatelessWidget {
         child: Text(
           'Gagal memuat tiket bantuan.\n$message',
           textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.redAccent,
+            fontSize: 16,
+            height: 1.4,
+          ),
         ),
       ),
     );
