@@ -32,10 +32,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       (previous, next) {
         next.whenOrNull(
           error: (error, _) {
+            final cleanMessage = error.toString().replaceAll('Exception: ', '');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(error.toString()),
+                content: Text(cleanMessage),
                 backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating,
               ),
             );
           },
