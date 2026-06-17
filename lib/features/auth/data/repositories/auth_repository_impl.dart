@@ -49,9 +49,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
       return userModel;
     } catch (e) {
-      // Menangkap dan melempar kembali eksepsi spesifik ke controller UI 
-      // untuk dipetakan menjadi pesan error yang aman bagi pengguna.
-      rethrow;
+      throw _mapAuthException(e);
     }
   }
 
@@ -87,7 +85,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
       return userModel;
     } catch (e) {
-      rethrow;
+      throw _mapAuthException(e);
     }
   }
 
@@ -108,5 +106,32 @@ class AuthRepositoryImpl implements AuthRepository {
     final doc = await _firestore.collection('users').doc(uid).get();
     if (!doc.exists || doc.data() == null) return null;
     return UserModel.fromMap(doc.data()!);
+  }
+
+  Exception _mapAuthException(dynamic e) {
+    if (e is fb.FirebaseAuthException) {
+      switch (e.code) {
+        case 'email-already-in-use':
+          return Exception('Email ini sudah terdaftar. Silakan gunakan email lain atau masuk.');
+        case 'invalid-credential':
+          return Exception('Email atau password salah. Silakan periksa kembali.');
+        case 'weak-password':
+          return Exception('Password terlalu lemah. Gunakan minimal 6 karakter.');
+        case 'invalid-email':
+          return Exception('Format email tidak valid.');
+        case 'user-not-found':
+          return Exception('Akun dengan email ini tidak ditemukan.');
+        case 'wrong-password':
+          return Exception('Kata sandi yang Anda masukkan salah.');
+        case 'network-request-failed':
+          return Exception('Koneksi internet bermasalah. Silakan periksa koneksi Anda.');
+        default:
+          return Exception('Terjadi kesalahan otentikasi: ${e.message ?? e.code}');
+      }
+    }
+    if (e is Exception) {
+      return e;
+    }
+    return Exception(e.toString());
   }
 }

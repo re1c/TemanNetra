@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:temannetra/features/help_request/domain/models/help_request_model.dart';
 import 'package:temannetra/features/volunteer/data/repositories/volunteer_repository_impl.dart';
-import 'package:temannetra/features/volunteer/domain/models/chat_message_model.dart';
+import 'package:temannetra/core/models/chat_message_model.dart';
 import 'package:temannetra/features/volunteer/domain/repositories/volunteer_repository.dart';
 
 part 'volunteer_controller.g.dart';

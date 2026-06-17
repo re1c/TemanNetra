@@ -3,24 +3,36 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:developer' as developer;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/models/chat_message_model.dart';
+import '../../../../core/services/voice_note_storage_service.dart';
 import '../../domain/models/help_request_model.dart';
 import '../../domain/repositories/help_request_repository.dart';
 
 class HelpRequestRepositoryImpl implements HelpRequestRepository {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
+  final VoiceNoteStorageService _voiceNoteStorageService;
 
   HelpRequestRepositoryImpl({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
+    VoiceNoteStorageService? voiceNoteStorageService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+        _auth = auth ?? FirebaseAuth.instance,
+        _voiceNoteStorageService =
+            voiceNoteStorageService ?? VoiceNoteStorageService();
 
   static const String _quickHelpDescription =
       'Pengguna membutuhkan bantuan relawan.';
 
   CollectionReference<Map<String, dynamic>> get _helpRequestsCollection {
     return _firestore.collection('help_requests');
+  }
+
+  CollectionReference<Map<String, dynamic>> _messagesCollection(
+    String requestId,
+  ) {
+    return _helpRequestsCollection.doc(requestId).collection('messages');
   }
 
   @override
@@ -201,5 +213,90 @@ class HelpRequestRepositoryImpl implements HelpRequestRepository {
     } catch (e) {
       throw Exception('Gagal menghapus tiket bantuan: ${e.toString()}');
     }
+  }
+
+  @override
+  Stream<List<ChatMessageModel>> watchChatMessages(String requestId) {
+    if (requestId.isEmpty) {
+      return Stream.value([]);
+    }
+
+    return _messagesCollection(requestId)
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return ChatMessageModel.fromMap(doc.data(), doc.id);
+      }).toList();
+    });
+  }
+
+  Future<String> _getCurrentUserName(String uid) async {
+    final userDoc = await _firestore.collection('users').doc(uid).get();
+    return userDoc.data()?['name'] as String? ?? 'Pengguna TemanNetra';
+  }
+
+  @override
+  Future<void> sendTextMessage({
+    required String requestId,
+    required String messageText,
+  }) async {
+    final trimmedMessage = messageText.trim();
+
+    if (trimmedMessage.isEmpty) {
+      throw Exception('Pesan tidak boleh kosong.');
+    }
+
+    final currentUser = _auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception('Sesi pengguna tidak valid. Silakan masuk kembali.');
+    }
+
+    final senderName = await _getCurrentUserName(currentUser.uid);
+    final messageDocRef = _messagesCollection(requestId).doc();
+
+    await messageDocRef.set({
+      'id': messageDocRef.id,
+      'senderId': currentUser.uid,
+      'senderName': senderName,
+      'messageText': trimmedMessage,
+      'messageUrl': null,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  @override
+  Future<void> sendVoiceMessage({
+    required String requestId,
+    required String voicePath,
+  }) async {
+    if (voicePath.trim().isEmpty) {
+      throw Exception('File voice note tidak valid.');
+    }
+
+    final currentUser = _auth.currentUser;
+
+    if (currentUser == null) {
+      throw Exception('Sesi pengguna tidak valid. Silakan masuk kembali.');
+    }
+
+    final senderName = await _getCurrentUserName(currentUser.uid);
+    
+    final voiceUrl = await _voiceNoteStorageService.uploadVoiceNote(
+      requestId: requestId,
+      localFilePath: voicePath,
+    );
+
+    final messageDocRef = _messagesCollection(requestId).doc();
+
+    await messageDocRef.set({
+      'id': messageDocRef.id,
+      'senderId': currentUser.uid,
+      'senderName': senderName,
+      'messageText': null,
+      'messageUrl': voiceUrl,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 }

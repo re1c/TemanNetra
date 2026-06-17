@@ -32,11 +32,25 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       authControllerProvider,
       (previous, next) {
         next.whenOrNull(
+          data: (_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Pendaftaran berhasil! Akun Anda telah aktif.'),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          },
           error: (error, _) {
+            final cleanMessage = error.toString().replaceAll('Exception: ', '');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(error.toString()),
+                content: Text(cleanMessage),
                 backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating,
               ),
             );
           },
