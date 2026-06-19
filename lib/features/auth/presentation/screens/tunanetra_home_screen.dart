@@ -22,8 +22,6 @@ class _TunanetraHomeScreenState extends ConsumerState<TunanetraHomeScreen> {
   static const Color _cardColor = Color(0xFF1B1B1B);
   static const Color _primaryYellow = Color(0xFFFFD700);
 
-  bool _isRequestingVolunteer = false;
-
   void _openAiAssistant() {
     ref.read(hapticServiceProvider).vibrateClick();
     ref.read(ttsServiceProvider).speak(
@@ -38,13 +36,10 @@ class _TunanetraHomeScreenState extends ConsumerState<TunanetraHomeScreen> {
   }
 
   Future<void> _requestVolunteerHelp() async {
-    if (_isRequestingVolunteer) {
+    final isLoading = ref.read(helpRequestControllerProvider).isLoading;
+    if (isLoading) {
       return;
     }
-
-    setState(() {
-      _isRequestingVolunteer = true;
-    });
 
     ref.read(hapticServiceProvider).vibrateClick();
     ref.read(ttsServiceProvider).speak(
@@ -84,12 +79,6 @@ class _TunanetraHomeScreenState extends ConsumerState<TunanetraHomeScreen> {
           ),
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRequestingVolunteer = false;
-        });
-      }
     }
   }
 
@@ -109,7 +98,7 @@ class _TunanetraHomeScreenState extends ConsumerState<TunanetraHomeScreen> {
   Future<void> _signOut() async {
     ref.read(hapticServiceProvider).vibrateClick();
     ref.read(ttsServiceProvider).speak('Keluar dari akun Anda.');
-    await ref.read(authControllerProvider.notifier).signOut();
+    await ref.read(authMutationControllerProvider.notifier).signOut();
   }
 
   @override
@@ -207,7 +196,7 @@ class _TunanetraHomeScreenState extends ConsumerState<TunanetraHomeScreen> {
               borderColor: _primaryYellow,
               semanticLabel:
                   'Minta bantuan relawan. Tombol ini langsung membuat permintaan bantuan.',
-              isLoading: _isRequestingVolunteer,
+              isLoading: ref.watch(helpRequestControllerProvider).isLoading,
               onPressed: _requestVolunteerHelp,
             ),
             const SizedBox(height: 18),

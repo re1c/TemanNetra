@@ -19,7 +19,6 @@ class CreateHelpRequestScreen extends ConsumerStatefulWidget {
 class _CreateHelpRequestScreenState extends ConsumerState<CreateHelpRequestScreen> {
   final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -68,11 +67,8 @@ class _CreateHelpRequestScreenState extends ConsumerState<CreateHelpRequestScree
 
   /// Mengeksekusi pengajuan tiket bantuan baru ke Firestore.
   Future<void> _submitRequest() async {
-    if (!_formKey.currentState!.validate() || _isSubmitting) return;
-
-    setState(() {
-      _isSubmitting = true;
-    });
+    final isLoading = ref.read(helpRequestControllerProvider).isLoading;
+    if (!_formKey.currentState!.validate() || isLoading) return;
 
     ref.read(hapticServiceProvider).vibrateClick();
     ref.read(ttsServiceProvider).speak('Sedang mengirimkan tiket bantuan...');
@@ -95,15 +91,31 @@ class _CreateHelpRequestScreenState extends ConsumerState<CreateHelpRequestScree
     } catch (e) {
       ref.read(hapticServiceProvider).vibrateError();
       ref.read(ttsServiceProvider).speak(e.toString());
-      
-      setState(() {
-        _isSubmitting = false;
-      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = ref.watch(helpRequestControllerProvider).isLoading;
+
+    ref.listen(
+      helpRequestControllerProvider,
+      (previous, next) {
+        next.whenOrNull(
+          error: (error, _) {
+            final cleanMessage = error.toString().replaceAll('Exception: ', '');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(cleanMessage),
+                backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+        );
+      },
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
@@ -150,7 +162,7 @@ class _CreateHelpRequestScreenState extends ConsumerState<CreateHelpRequestScree
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: _isSubmitting ? null : _copyLastAiResult,
+                      onPressed: isLoading ? null : _copyLastAiResult,
                       icon: const Icon(Icons.copy, color: Color(0xFFFFD700), size: 28),
                       label: const Text(
                         'Salin Hasil Kamera AI',
@@ -210,8 +222,8 @@ class _CreateHelpRequestScreenState extends ConsumerState<CreateHelpRequestScree
                         ),
                         elevation: 4,
                       ),
-                      onPressed: _isSubmitting ? null : _submitRequest,
-                      child: _isSubmitting
+                      onPressed: isLoading ? null : _submitRequest,
+                      child: isLoading
                           ? const CircularProgressIndicator(color: Colors.black)
                           : const Text(
                               'KIRIM TIKET BANTUAN',

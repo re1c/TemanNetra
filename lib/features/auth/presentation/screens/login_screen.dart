@@ -27,8 +27,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     // Mendengarkan perubahan state secara pasif untuk memicu pesan error 
     // di luar siklus rendering widget (mencegah efek samping penulisan state saat build).
-    ref.listen<AsyncValue<void>>(
-      authControllerProvider,
+    ref.listen(
+      authMutationControllerProvider,
       (previous, next) {
         next.whenOrNull(
           error: (error, _) {
@@ -45,8 +45,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       },
     );
 
-    final authState = ref.watch(authControllerProvider);
-    final isLoading = authState.isLoading;
+    final authMutationState = ref.watch(authMutationControllerProvider);
+    final isLoading = authMutationState.isLoading;
 
     return Scaffold(
       appBar: AppBar(
@@ -78,6 +78,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your email';
+                      }
+                      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                      if (!emailRegex.hasMatch(value)) {
+                        return 'Format email tidak valid.';
                       }
                       return null;
                     },
@@ -115,7 +119,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ? null
                           : () {
                               if (_formKey.currentState!.validate()) {
-                                ref.read(authControllerProvider.notifier).signIn(
+                                ref.read(authMutationControllerProvider.notifier).signIn(
                                       _emailController.text.trim(),
                                       _passwordController.text.trim(),
                                     );

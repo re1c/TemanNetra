@@ -15,22 +15,37 @@ class ActiveClaimScreen extends ConsumerWidget {
     final claimedRequestsState = ref.watch(myClaimedHelpRequestsProvider);
     final actionState = ref.watch(volunteerControllerProvider);
 
-    ref.listen(volunteerControllerProvider, (previous, next) {
+    ref.listen<AsyncValue<void>>(volunteerControllerProvider, (previous, next) {
       next.whenOrNull(
         data: (_) {
           if (previous?.isLoading == true) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Aksi berhasil dilakukan.'),
+                content: Text(
+                  'Aksi berhasil dilakukan.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                backgroundColor: Colors.green,
                 behavior: SnackBarBehavior.floating,
               ),
             );
           }
         },
         error: (error, _) {
+          final cleanMessage = error.toString().replaceAll('Exception: ', '');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(error.toString()),
+              content: Text(
+                cleanMessage,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              backgroundColor: Colors.redAccent,
               behavior: SnackBarBehavior.floating,
             ),
           );

@@ -28,7 +28,7 @@ final authRepositoryProvider = AutoDisposeProvider<AuthRepository>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthRepositoryRef = AutoDisposeProviderRef<AuthRepository>;
-String _$authControllerHash() => r'97e2db4838315c826225a0d33100ef73a2a40727';
+String _$authControllerHash() => r'b81ad7a5e623420b4459a6252d317e13fdbb9133';
 
 /// Pengendali state autentikasi reaktif berbasis StreamNotifier.
 ///
@@ -51,5 +51,27 @@ final authControllerProvider =
     );
 
 typedef _$AuthController = AutoDisposeStreamNotifier<UserModel?>;
+String _$authMutationControllerHash() =>
+    r'999a245cb624a105462b118a019acd7f6a419792';
+
+/// Pengendali mutasi autentikasi (Sign In, Sign Up, Sign Out) berbasis AsyncNotifier.
+///
+/// Ini memisahkan status loading dan error selama proses pendaftaran atau masuk
+/// dari aliran status autentikasi global agar tidak memicu layar System Error di main.dart.
+///
+/// Copied from [AuthMutationController].
+@ProviderFor(AuthMutationController)
+final authMutationControllerProvider =
+    AutoDisposeAsyncNotifierProvider<AuthMutationController, void>.internal(
+      AuthMutationController.new,
+      name: r'authMutationControllerProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$authMutationControllerHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+typedef _$AuthMutationController = AutoDisposeAsyncNotifier<void>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

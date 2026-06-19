@@ -172,16 +172,32 @@ class _HelpRequestMessagesProviderElement
   String get requestId => (origin as HelpRequestMessagesProvider).requestId;
 }
 
+String _$myHelpRequestsHash() => r'e1357baa7d4889b3007127944459064bba165315';
+
+/// See also [myHelpRequests].
+@ProviderFor(myHelpRequests)
+final myHelpRequestsProvider =
+    AutoDisposeStreamProvider<List<HelpRequestModel>>.internal(
+      myHelpRequests,
+      name: r'myHelpRequestsProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$myHelpRequestsHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef MyHelpRequestsRef =
+    AutoDisposeStreamProviderRef<List<HelpRequestModel>>;
 String _$helpRequestControllerHash() =>
-    r'd8911ce88012b2cc6251376faec24ff04f3faea8';
+    r'15bb40be836d3144004f87820e7834fb9f809b6c';
 
 /// See also [HelpRequestController].
 @ProviderFor(HelpRequestController)
 final helpRequestControllerProvider =
-    AutoDisposeStreamNotifierProvider<
-      HelpRequestController,
-      List<HelpRequestModel>
-    >.internal(
+    AutoDisposeAsyncNotifierProvider<HelpRequestController, void>.internal(
       HelpRequestController.new,
       name: r'helpRequestControllerProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -191,7 +207,6 @@ final helpRequestControllerProvider =
       allTransitiveDependencies: null,
     );
 
-typedef _$HelpRequestController =
-    AutoDisposeStreamNotifier<List<HelpRequestModel>>;
+typedef _$HelpRequestController = AutoDisposeAsyncNotifier<void>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

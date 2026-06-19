@@ -27,16 +27,22 @@ class AuthController extends _$AuthController {
     // Melakukan observasi reaktif terhadap aliran data perubahan status autentikasi.
     return ref.watch(authRepositoryProvider).authStateChanges;
   }
+}
+
+/// Pengendali mutasi autentikasi (Sign In, Sign Up, Sign Out) berbasis AsyncNotifier.
+/// 
+/// Ini memisahkan status loading dan error selama proses pendaftaran atau masuk
+/// dari aliran status autentikasi global agar tidak memicu layar System Error di main.dart.
+@riverpod
+class AuthMutationController extends _$AuthMutationController {
+  @override
+  FutureOr<void> build() {}
 
   /// Mengeksekusi verifikasi masuk pengguna menggunakan kredensial email.
   Future<void> signIn(String email, String password) async {
-    state = const AsyncValue.loading();
-    
-    // Hasil asinkronus dibungkus dalam guard untuk menangkap seluruh eksepsi
-    // kegagalan jaringan secara aman dan menyimpannya ke dalam state AsyncError
-    // agar dapat di-render sebagai SnackBar di sisi antarmuka.
+    state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      return ref.read(authRepositoryProvider).signInWithEmailAndPassword(email, password);
+      await ref.read(authRepositoryProvider).signInWithEmailAndPassword(email, password);
     });
   }
 
@@ -47,9 +53,9 @@ class AuthController extends _$AuthController {
     required String name,
     required UserRole role,
   }) async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      return ref.read(authRepositoryProvider).signUpWithEmailAndPassword(
+      await ref.read(authRepositoryProvider).signUpWithEmailAndPassword(
         email: email,
         password: password,
         name: name,
@@ -60,10 +66,9 @@ class AuthController extends _$AuthController {
 
   /// Mengakhiri sesi pengguna aktif saat ini.
   Future<void> signOut() async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       await ref.read(authRepositoryProvider).signOut();
-      return null;
     });
   }
 }

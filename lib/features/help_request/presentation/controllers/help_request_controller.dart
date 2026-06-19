@@ -21,78 +21,82 @@ Stream<List<ChatMessageModel>> helpRequestMessages(
 }
 
 @riverpod
+Stream<List<HelpRequestModel>> myHelpRequests(MyHelpRequestsRef ref) {
+  return ref.watch(helpRequestRepositoryProvider).getMyHelpRequests();
+}
+
+@riverpod
 class HelpRequestController extends _$HelpRequestController {
   @override
-  Stream<List<HelpRequestModel>> build() {
-    return ref.watch(helpRequestRepositoryProvider).getMyHelpRequests();
+  FutureOr<void> build() {
+    // State is AsyncValue<void> representing status of mutation
   }
 
   Future<void> createTicket(String description) async {
-    try {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
       await ref.read(helpRequestRepositoryProvider).createHelpRequest(
             description,
           );
-    } catch (e) {
-      rethrow;
-    }
+    });
   }
 
   Future<HelpRequestModel> getOrCreateActiveHelpRequest() async {
-    try {
-      return ref
+    state = const AsyncLoading();
+    HelpRequestModel? ticket;
+    state = await AsyncValue.guard(() async {
+      ticket = await ref
           .read(helpRequestRepositoryProvider)
           .getOrCreateActiveHelpRequest();
-    } catch (e) {
-      rethrow;
+    });
+    if (state.hasError) {
+      throw state.error!;
     }
+    return ticket!;
   }
 
   Future<void> updateTicket(String id, String description) async {
-    try {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
       await ref
           .read(helpRequestRepositoryProvider)
           .updateHelpRequestDescription(
             id,
             description,
           );
-    } catch (e) {
-      rethrow;
-    }
+    });
   }
 
   Future<void> deleteTicket(String id) async {
-    try {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
       await ref.read(helpRequestRepositoryProvider).deleteHelpRequest(id);
-    } catch (e) {
-      rethrow;
-    }
+    });
   }
 
   Future<void> sendTextMessage({
     required String requestId,
     required String messageText,
   }) async {
-    try {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
       await ref.read(helpRequestRepositoryProvider).sendTextMessage(
             requestId: requestId,
             messageText: messageText,
           );
-    } catch (e) {
-      rethrow;
-    }
+    });
   }
 
   Future<void> sendVoiceMessage({
     required String requestId,
     required String voicePath,
   }) async {
-    try {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
       await ref.read(helpRequestRepositoryProvider).sendVoiceMessage(
             requestId: requestId,
             voicePath: voicePath,
           );
-    } catch (e) {
-      rethrow;
-    }
+    });
   }
 }

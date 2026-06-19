@@ -28,8 +28,6 @@ class _HelpRequestDetailScreenState
   final TextEditingController _messageController = TextEditingController();
   final Set<String> _autoPlayedAudioMessageIds = <String>{};
 
-  bool _isSending = false;
-
   @override
   void initState() {
     super.initState();
@@ -78,72 +76,29 @@ class _HelpRequestDetailScreenState
       return;
     }
 
-    setState(() {
-      _isSending = true;
-    });
+    await ref.read(helpRequestControllerProvider.notifier).sendTextMessage(
+          requestId: widget.ticket.id,
+          messageText: message,
+        );
 
-    try {
-      await ref.read(helpRequestControllerProvider.notifier).sendTextMessage(
-            requestId: widget.ticket.id,
-            messageText: message,
-          );
-
+    final actionState = ref.read(helpRequestControllerProvider);
+    if (!actionState.hasError) {
       _messageController.clear();
-
       ref.read(hapticServiceProvider).vibrateSuccess();
       ref.read(ttsServiceProvider).speak('Pesan berhasil dikirim.');
-    } catch (e) {
-      ref.read(hapticServiceProvider).vibrateError();
-      ref.read(ttsServiceProvider).speak('Gagal mengirim pesan.');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal mengirim pesan: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSending = false;
-        });
-      }
     }
   }
 
   Future<void> _sendVoiceMessage(String voicePath) async {
-    setState(() {
-      _isSending = true;
-    });
+    await ref.read(helpRequestControllerProvider.notifier).sendVoiceMessage(
+          requestId: widget.ticket.id,
+          voicePath: voicePath,
+        );
 
-    try {
-      await ref.read(helpRequestControllerProvider.notifier).sendVoiceMessage(
-            requestId: widget.ticket.id,
-            voicePath: voicePath,
-          );
-
+    final actionState = ref.read(helpRequestControllerProvider);
+    if (!actionState.hasError) {
       ref.read(hapticServiceProvider).vibrateSuccess();
       ref.read(ttsServiceProvider).speak('Voice note berhasil dikirim.');
-    } catch (e) {
-      ref.read(hapticServiceProvider).vibrateError();
-      ref.read(ttsServiceProvider).speak('Gagal mengirim voice note.');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal mengirim voice note: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSending = false;
-        });
-      }
     }
   }
 
@@ -177,6 +132,32 @@ class _HelpRequestDetailScreenState
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<void>>(
+      helpRequestControllerProvider,
+      (previous, next) {
+        next.whenOrNull(
+          error: (error, _) {
+            final errorMessage = error.toString().replaceFirst('Exception: ', '');
+            ref.read(hapticServiceProvider).vibrateError();
+            ref.read(ttsServiceProvider).speak(errorMessage);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  errorMessage,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                backgroundColor: Colors.red[800],
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+        );
+      },
+    );
+
     final statusText = _mapStatusText(widget.ticket.status);
     final statusColor = _mapStatusColor(widget.ticket.status);
     final canSendMessage = widget.ticket.status == HelpRequestStatus.claimed;
@@ -317,7 +298,7 @@ class _HelpRequestDetailScreenState
           if (canSendMessage)
             _MessageComposer(
               controller: _messageController,
-              isLoading: _isSending,
+              isLoading: ref.watch(helpRequestControllerProvider).isLoading,
               onSendText: _sendTextMessage,
               onSendVoice: _sendVoiceMessage,
             )
