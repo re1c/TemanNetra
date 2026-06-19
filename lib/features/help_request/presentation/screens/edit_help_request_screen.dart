@@ -24,7 +24,6 @@ class EditHelpRequestScreen extends ConsumerStatefulWidget {
 class _EditHelpRequestScreenState extends ConsumerState<EditHelpRequestScreen> {
   late final TextEditingController _descriptionController;
   final _formKey = GlobalKey<FormState>();
-  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -48,7 +47,8 @@ class _EditHelpRequestScreenState extends ConsumerState<EditHelpRequestScreen> {
 
   /// Mengeksekusi penyimpanan hasil perubahan ke Firestore.
   Future<void> _saveChanges() async {
-    if (!_formKey.currentState!.validate() || _isSubmitting) return;
+    final isLoading = ref.read(helpRequestControllerProvider).isLoading;
+    if (!_formKey.currentState!.validate() || isLoading) return;
 
     // Proteksi UI defensif: Menghalangi perubahan jika status bergeser di database
     if (widget.helpRequest.status != HelpRequestStatus.pending) {
@@ -60,18 +60,15 @@ class _EditHelpRequestScreenState extends ConsumerState<EditHelpRequestScreen> {
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
-
     ref.read(hapticServiceProvider).vibrateClick();
     ref.read(ttsServiceProvider).speak('Sedang menyimpan perubahan tiket...');
 
-    try {
-      await ref
-          .read(helpRequestControllerProvider.notifier)
-          .updateTicket(widget.helpRequest.id, _descriptionController.text.trim());
+    await ref
+        .read(helpRequestControllerProvider.notifier)
+        .updateTicket(widget.helpRequest.id, _descriptionController.text.trim());
 
+    final actionState = ref.read(helpRequestControllerProvider);
+    if (!actionState.hasError) {
       ref.read(hapticServiceProvider).vibrateSuccess();
       ref.read(ttsServiceProvider).speak(
         'Perubahan tiket bantuan berhasil disimpan. '
@@ -81,18 +78,39 @@ class _EditHelpRequestScreenState extends ConsumerState<EditHelpRequestScreen> {
       if (mounted) {
         Navigator.of(context).pop();
       }
-    } catch (e) {
-      ref.read(hapticServiceProvider).vibrateError();
-      ref.read(ttsServiceProvider).speak(e.toString());
-      
-      setState(() {
-        _isSubmitting = false;
-      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<void>>(
+      helpRequestControllerProvider,
+      (previous, next) {
+        next.whenOrNull(
+          error: (error, _) {
+            final cleanMessage = error.toString().replaceAll('Exception: ', '');
+            ref.read(hapticServiceProvider).vibrateError();
+            ref.read(ttsServiceProvider).speak(cleanMessage);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  cleanMessage,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    final isLoading = ref.watch(helpRequestControllerProvider).isLoading;
+
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
@@ -169,8 +187,8 @@ class _EditHelpRequestScreenState extends ConsumerState<EditHelpRequestScreen> {
                         ),
                         elevation: 4,
                       ),
-                      onPressed: _isSubmitting ? null : _saveChanges,
-                      child: _isSubmitting
+                      onPressed: isLoading ? null : _saveChanges,
+                      child: isLoading
                           ? const CircularProgressIndicator(color: Colors.black)
                           : const Text(
                               'SIMPAN PERUBAHAN',

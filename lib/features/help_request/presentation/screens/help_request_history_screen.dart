@@ -107,13 +107,12 @@ class _HelpRequestHistoryScreenState
   Future<void> _executeDelete(String id) async {
     ref.read(ttsServiceProvider).speak('Sedang menghapus tiket bantuan...');
 
-    try {
-      await ref.read(helpRequestControllerProvider.notifier).deleteTicket(id);
+    await ref.read(helpRequestControllerProvider.notifier).deleteTicket(id);
+    
+    final actionState = ref.read(helpRequestControllerProvider);
+    if (!actionState.hasError) {
       ref.read(hapticServiceProvider).vibrateSuccess();
       ref.read(ttsServiceProvider).speak('Tiket bantuan berhasil dihapus.');
-    } catch (e) {
-      ref.read(hapticServiceProvider).vibrateError();
-      ref.read(ttsServiceProvider).speak(e.toString());
     }
   }
 
@@ -160,7 +159,32 @@ class _HelpRequestHistoryScreenState
 
   @override
   Widget build(BuildContext context) {
-    final ticketsState = ref.watch(helpRequestControllerProvider);
+    ref.listen<AsyncValue<void>>(
+      helpRequestControllerProvider,
+      (previous, next) {
+        next.whenOrNull(
+          error: (error, _) {
+            final cleanMessage = error.toString().replaceAll('Exception: ', '');
+            ref.read(hapticServiceProvider).vibrateError();
+            ref.read(ttsServiceProvider).speak(cleanMessage);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  cleanMessage,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                backgroundColor: Colors.redAccent,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+        );
+      },
+    );
+    final ticketsState = ref.watch(myHelpRequestsProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF121212),

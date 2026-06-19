@@ -39,9 +39,17 @@ class _VolunteerDashboardScreenState
       volunteerControllerProvider,
       (previous, next) {
         if (next.hasError) {
+          final cleanMessage = next.error.toString().replaceAll('Exception: ', '');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(next.error.toString()),
+              content: Text(
+                cleanMessage,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              backgroundColor: Colors.redAccent,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -50,7 +58,14 @@ class _VolunteerDashboardScreenState
         if (previous?.isLoading == true && next.hasValue) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Aksi berhasil dilakukan.'),
+              content: Text(
+                'Aksi berhasil dilakukan.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -90,7 +105,7 @@ class _VolunteerDashboardScreenState
           ),
           TextButton(
             onPressed: () {
-              ref.read(authControllerProvider.notifier).signOut();
+              ref.read(authMutationControllerProvider.notifier).signOut();
             },
             child: const Text(
               'Keluar',

@@ -28,8 +28,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<void>>(
-      authControllerProvider,
+    ref.listen(
+      authMutationControllerProvider,
       (previous, next) {
         next.whenOrNull(
           data: (_) {
@@ -58,8 +58,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       },
     );
 
-    final authState = ref.watch(authControllerProvider);
-    final isLoading = authState.isLoading;
+    final authMutationState = ref.watch(authMutationControllerProvider);
+    final isLoading = authMutationState.isLoading;
 
     return Scaffold(
       appBar: AppBar(
@@ -236,7 +236,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           ? null
                           : () {
                               if (_formKey.currentState!.validate()) {
-                                ref.read(authControllerProvider.notifier).signUp(
+                                ref.read(authMutationControllerProvider.notifier).signUp(
                                       email: _emailController.text.trim(),
                                       password: _passwordController.text.trim(),
                                       name: _nameController.text.trim(),
