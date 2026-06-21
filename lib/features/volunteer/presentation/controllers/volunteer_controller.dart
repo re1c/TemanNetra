@@ -124,6 +124,8 @@ class VolunteerController extends _$VolunteerController {
     state = await AsyncValue.guard(() async {
       await ref.read(volunteerRepositoryProvider).uploadKtpImage(localPath);
     });
-    ref.invalidate(authControllerProvider);
+    if (!state.hasError) {
+      ref.invalidate(authControllerProvider);
+    }
   }
 }
