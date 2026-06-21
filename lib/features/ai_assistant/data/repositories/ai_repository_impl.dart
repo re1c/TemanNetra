@@ -16,9 +16,26 @@ class AiRepositoryImpl implements AiRepository {
   AiRepositoryImpl({required this.apiKey});
 
   Future<Uint8List> _resizeImage(Uint8List imageBytes) async {
-    final ui.Codec codec = await ui.instantiateImageCodec(
-      imageBytes,
-      targetWidth: 1024,
+    final ui.ImmutableBuffer buffer = await ui.ImmutableBuffer.fromUint8List(imageBytes);
+    final ui.ImageDescriptor descriptor = await ui.ImageDescriptor.encoded(buffer);
+
+    int targetWidth = descriptor.width;
+    int targetHeight = descriptor.height;
+    const int maxDimension = 1024;
+
+    if (targetWidth > maxDimension || targetHeight > maxDimension) {
+      if (targetWidth > targetHeight) {
+        targetHeight = (targetHeight * maxDimension) ~/ targetWidth;
+        targetWidth = maxDimension;
+      } else {
+        targetWidth = (targetWidth * maxDimension) ~/ targetHeight;
+        targetHeight = maxDimension;
+      }
+    }
+
+    final ui.Codec codec = await descriptor.instantiateCodec(
+      targetWidth: targetWidth,
+      targetHeight: targetHeight,
     );
     final ui.FrameInfo frameInfo = await codec.getNextFrame();
     final byteData = await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
@@ -85,7 +102,7 @@ class AiRepositoryImpl implements AiRepository {
       } else if (response.statusCode >= 500) {
         throw Exception('Gagal menghubungi Groq API: Terjadi gangguan server internal.');
       } else if (response.statusCode != 200) {
-        throw Exception('Gagal menghubungi Groq API: HTTP ${response.statusCode}');
+        throw Exception('Gagal memproses gambar. Layanan asisten visual sedang mengalami gangguan teknis. Silakan coba ambil gambar kembali.');
       }
 
       // Step 5: Parse and Sanitize JSON Response
