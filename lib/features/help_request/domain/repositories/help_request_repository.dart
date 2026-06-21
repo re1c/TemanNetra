@@ -4,7 +4,7 @@ import '../models/help_request_model.dart';
 abstract class HelpRequestRepository {
   Stream<List<HelpRequestModel>> getMyHelpRequests();
 
-  Future<void> createHelpRequest(String description);
+  Future<void> createHelpRequest(String description, {String? voicePath});
 
   Future<HelpRequestModel> getOrCreateActiveHelpRequest();
 
@@ -23,4 +23,8 @@ abstract class HelpRequestRepository {
     required String requestId,
     required String voicePath,
   });
+
+  Future<void> cancelHelpRequest(String id);
+
+  Future<void> resolveHelpRequest(String id);
 }
