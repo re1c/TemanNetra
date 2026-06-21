@@ -1,0 +1,31 @@
+{
+  "@@locale": "id",
+  "helpRequestDetailsTitle": "Detail Bantuan",
+  "@helpRequestDetailsTitle": {
+    "description": "Judul halaman detail bantuan"
+  },
+  "backButtonLabel": "Kembali",
+  "@backButtonLabel": {
+    "description": "Label tombol kembali"
+  },
+  "volunteerWaitingAnnouncement": "Permintaan bantuan berhasil dikirim. Sedang mencari relawan terdekat. Mohon tunggu, Anda dapat mengirim pesan setelah relawan terhubung.",
+  "@volunteerWaitingAnnouncement": {
+    "description": "Pengumuman suara ketika sedang menunggu relawan terhubung"
+  },
+  "ticketStatusPending": "Menunggu Relawan",
+  "@ticketStatusPending": {
+    "description": "Status tiket sedang menunggu relawan"
+  },
+  "ticketStatusClaimed": "Sedang Dibantu",
+  "@ticketStatusClaimed": {
+    "description": "Status tiket sedang dibantu oleh relawan"
+  },
+  "ticketStatusResolved": "Selesai",
+  "@ticketStatusResolved": {
+    "description": "Status tiket sudah selesai"
+  },
+  "securityWarningAnnouncement": "Peringatan Keamanan: Jangan pernah menyebutkan kata sandi atau informasi keuangan Anda.",
+  "@securityWarningAnnouncement": {
+    "description": "Pengumuman peringatan keamanan untuk tunanetra"
+  }
+}
