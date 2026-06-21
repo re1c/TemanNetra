@@ -57,8 +57,9 @@ class _VoiceNoteButtonState extends State<VoiceNoteButton> {
     await _recorder.start(
       const RecordConfig(
         encoder: AudioEncoder.aacLc,
-        bitRate: 128000,
-        sampleRate: 44100,
+        bitRate: 24000,
+        sampleRate: 16000,
+        numChannels: 1,
       ),
       path: path,
     );

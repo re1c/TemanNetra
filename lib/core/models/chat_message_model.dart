@@ -7,6 +7,9 @@ class ChatMessageModel {
   final String? messageText;
   final String? messageUrl;
   final DateTime createdAt;
+  final String messageType;
+  final bool isPlayed;
+  final int? duration;
 
   const ChatMessageModel({
     required this.id,
@@ -15,7 +18,34 @@ class ChatMessageModel {
     this.messageText,
     this.messageUrl,
     required this.createdAt,
+    this.messageType = 'text',
+    this.isPlayed = false,
+    this.duration,
   });
+
+  ChatMessageModel copyWith({
+    String? id,
+    String? senderId,
+    String? senderName,
+    String? messageText,
+    String? messageUrl,
+    DateTime? createdAt,
+    String? messageType,
+    bool? isPlayed,
+    int? duration,
+  }) {
+    return ChatMessageModel(
+      id: id ?? this.id,
+      senderId: senderId ?? this.senderId,
+      senderName: senderName ?? this.senderName,
+      messageText: messageText ?? this.messageText,
+      messageUrl: messageUrl ?? this.messageUrl,
+      createdAt: createdAt ?? this.createdAt,
+      messageType: messageType ?? this.messageType,
+      isPlayed: isPlayed ?? this.isPlayed,
+      duration: duration ?? this.duration,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -25,6 +55,9 @@ class ChatMessageModel {
       'messageText': messageText,
       'messageUrl': messageUrl,
       'createdAt': createdAt.toIso8601String(),
+      'messageType': messageType,
+      'isPlayed': isPlayed,
+      'duration': duration,
     };
   }
 
@@ -39,6 +72,9 @@ class ChatMessageModel {
       messageText: map['messageText'] as String?,
       messageUrl: map['messageUrl'] as String?,
       createdAt: _parseDateTime(map['createdAt']),
+      messageType: map['messageType'] as String? ?? 'text',
+      isPlayed: map['isPlayed'] as bool? ?? false,
+      duration: map['duration'] as int?,
     );
   }
 
