@@ -23,4 +23,6 @@ abstract class VolunteerRepository {
     required String requestId,
     required String voicePath,
   });
+
+  Future<void> uploadKtpImage(String localPath);
 }

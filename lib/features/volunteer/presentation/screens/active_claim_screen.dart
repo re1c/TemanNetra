@@ -302,6 +302,31 @@ class _ActiveClaimSessionState extends ConsumerState<_ActiveClaimSession> {
             ),
           ),
         ),
+        Container(
+          color: const Color(0xFF2C2416),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0x80FFD700)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.info_outline, color: Color(0xFFFFD700)),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Perhatian Relawan: Berikan informasi dengan akurasi tinggi. Dilarang memberikan diagnosis medis atau hukum kepada pengguna.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         _MessageComposer(
           controller: _messageController,
           isLoading: widget.isActionLoading,

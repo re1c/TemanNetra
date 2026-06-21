@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image/image.dart' as img;
 import 'package:temannetra/features/help_request/domain/models/help_request_model.dart';
 import 'package:temannetra/core/services/voice_note_storage_service.dart';
 import 'package:temannetra/core/models/chat_message_model.dart';
@@ -263,6 +266,9 @@ class VolunteerRepositoryImpl implements VolunteerRepository {
         'messageText': trimmedMessage,
         'messageUrl': null,
         'createdAt': FieldValue.serverTimestamp(),
+        'messageType': 'text',
+        'isPlayed': false,
+        'duration': null,
       });
     });
   }
@@ -330,6 +336,9 @@ class VolunteerRepositoryImpl implements VolunteerRepository {
         'messageText': null,
         'messageUrl': voiceUrl,
         'createdAt': FieldValue.serverTimestamp(),
+        'messageType': 'audio',
+        'isPlayed': false,
+        'duration': null,
       });
     });
   }
@@ -368,5 +377,67 @@ class VolunteerRepositoryImpl implements VolunteerRepository {
     final userDoc = await _firestore.collection('users').doc(uid).get();
 
     return userDoc.data()?['name'] as String? ?? 'Relawan TemanNetra';
+  }
+
+  @override
+  Future<void> uploadKtpImage(String localPath) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('Relawan belum terautentikasi.');
+    }
+
+    final cleanedPath = localPath.replaceFirst('file://', '');
+    final file = File(cleanedPath);
+    if (!await file.exists()) {
+      throw Exception('File KTP tidak ditemukan.');
+    }
+
+    // Pipeline Downscaling & Kompresi KTP (Limit < 500 KB)
+    final bytes = await file.readAsBytes();
+    final image = img.decodeImage(bytes);
+    if (image == null) {
+      throw Exception('Gagal memproses file gambar KTP.');
+    }
+
+    img.Image resizedImage = image;
+    if (image.width > 1024 || image.height > 1024) {
+      if (image.width > image.height) {
+        resizedImage = img.copyResize(image, width: 1024);
+      } else {
+        resizedImage = img.copyResize(image, height: 1024);
+      }
+    }
+
+    final compressedBytes = img.encodeJpg(resizedImage, quality: 70);
+    await file.writeAsBytes(compressedBytes);
+
+    final client = Supabase.instance.client;
+    final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final String secureFileName = '${currentUser.uid}_KTP_$timestamp.jpg';
+
+    try {
+      await client.storage.from('volunteer_identity').upload(
+            secureFileName,
+            file,
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+              cacheControl: '3600',
+              upsert: true,
+            ),
+          );
+
+      final ktpStoragePath = 'volunteer_identity/$secureFileName';
+
+      await _firestore.collection('users').doc(currentUser.uid).update({
+        'verificationStatus': 'pending',
+        'ktpUrl': ktpStoragePath,
+      });
+    } finally {
+      try {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {}
+    }
   }
 }

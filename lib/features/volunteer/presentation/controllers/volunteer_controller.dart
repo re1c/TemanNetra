@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:temannetra/features/auth/domain/models/user_model.dart';
+import 'package:temannetra/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:temannetra/features/help_request/domain/models/help_request_model.dart';
 import 'package:temannetra/features/volunteer/data/repositories/volunteer_repository_impl.dart';
 import 'package:temannetra/core/models/chat_message_model.dart';
@@ -14,9 +17,30 @@ VolunteerRepository volunteerRepository(VolunteerRepositoryRef ref) {
 }
 
 @riverpod
+Stream<bool> isKtpVerificationEnabled(IsKtpVerificationEnabledRef ref) {
+  return FirebaseFirestore.instance
+      .collection('system_config')
+      .doc('registration')
+      .snapshots()
+      .map((snapshot) {
+        if (!snapshot.exists) return true;
+        final data = snapshot.data();
+        return data?['isKtpVerificationEnabled'] as bool? ?? true;
+      });
+}
+
+@riverpod
 Stream<List<HelpRequestModel>> pendingHelpRequests(
   PendingHelpRequestsRef ref,
 ) {
+  final user = ref.watch(authControllerProvider).valueOrNull;
+  if (user == null || user.role != UserRole.volunteer) {
+    return Stream.value([]);
+  }
+  final isKtpEnabled = ref.watch(isKtpVerificationEnabledProvider).valueOrNull ?? true;
+  if (isKtpEnabled && user.verificationStatus != VerificationStatus.verified) {
+    return Stream.value([]);
+  }
   return ref.watch(volunteerRepositoryProvider).watchPendingHelpRequests();
 }
 
@@ -24,6 +48,14 @@ Stream<List<HelpRequestModel>> pendingHelpRequests(
 Stream<List<HelpRequestModel>> myClaimedHelpRequests(
   MyClaimedHelpRequestsRef ref,
 ) {
+  final user = ref.watch(authControllerProvider).valueOrNull;
+  if (user == null || user.role != UserRole.volunteer) {
+    return Stream.value([]);
+  }
+  final isKtpEnabled = ref.watch(isKtpVerificationEnabledProvider).valueOrNull ?? true;
+  if (isKtpEnabled && user.verificationStatus != VerificationStatus.verified) {
+    return Stream.value([]);
+  }
   return ref.watch(volunteerRepositoryProvider).watchMyClaimedHelpRequests();
 }
 
@@ -85,5 +117,13 @@ class VolunteerController extends _$VolunteerController {
             voicePath: voicePath,
           );
     });
+  }
+
+  Future<void> uploadKtpImage(String localPath) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(volunteerRepositoryProvider).uploadKtpImage(localPath);
+    });
+    ref.invalidate(authControllerProvider);
   }
 }
