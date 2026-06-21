@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSelf(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isKtpVerificationEnabled() {
+      return !exists(/databases/$(database)/documents/system_config/registration) || 
+             get(/databases/$(database)/documents/system_config/registration).data.isKtpVerificationEnabled != false;
+    }
+
+    function isValidVolunteer() {
+      return isAuthenticated() && 
+             getUserData().role == 'volunteer' && 
+             (!isKtpVerificationEnabled() || getUserData().verificationStatus == 'verified');
+    }
+
+    function isTunanetra() {
+      return isAuthenticated() && 
+             getUserData().role == 'tunanetra';
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+             getUserData().role == 'admin';
+    }
+
+    match /users/{userId} {
+      allow read: if isSelf(userId) || isAdmin();
+      allow create: if isSelf(userId);
+      allow update: if (
+        isSelf(userId) && 
+        request.resource.data.role == resource.data.role && 
+        (
+          request.resource.data.verificationStatus == resource.data.verificationStatus || 
+          request.resource.data.verificationStatus == 'pending' || 
+          request.resource.data.verificationStatus == 'unverified'
+        )
+      ) || isAdmin();
+    }
+
+    match /system_config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /help_requests/{requestId} {
+      allow create: if isTunanetra();
+      allow read: if isAuthenticated() && (isSelf(resource.data.requesterId) || isValidVolunteer() || isAdmin());
+      allow update: if isAuthenticated() && (
+        isSelf(resource.data.requesterId) || 
+        (isValidVolunteer() && (
+          request.resource.data.status == 'claimed' || 
+          request.resource.data.status == 'resolved' || 
+          request.resource.data.status == 'pending'
+        )) ||
+        isAdmin()
+      );
+      allow delete: if (isSelf(resource.data.requesterId) && resource.data.status == 'pending') || isAdmin();
+
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated() && (
+          request.auth.uid == get(/databases/$(database)/documents/help_requests/$(requestId)).data.requesterId ||
+          request.auth.uid == get(/databases/$(database)/documents/help_requests/$(requestId)).data.volunteerId ||
+          isAdmin()
+        );
+      }
+    }
+  }
+}
