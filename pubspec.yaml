@@ -10,6 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
 
   cupertino_icons: ^1.0.8
 
@@ -36,6 +39,8 @@ dependencies:
   uuid: ^4.4.0
   record: ^6.0.0
   audioplayers: ^6.7.1
+  audio_session: ^0.2.3
+  image: ^4.9.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -57,3 +62,4 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+  generate: true
