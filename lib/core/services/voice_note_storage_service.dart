@@ -41,17 +41,27 @@ class VoiceNoteStorageService {
     final safeRequestId = _sanitizePathSegment(requestId);
     final fileName = '${safeRequestId}_${_uuid.v4()}.m4a';
 
-    await _client.storage.from(_bucketName).upload(
-          fileName,
-          file,
-          fileOptions: const FileOptions(
-            contentType: 'audio/mp4',
-            cacheControl: '3600',
-            upsert: false,
-          ),
-        );
+    try {
+      await _client.storage.from(_bucketName).upload(
+            fileName,
+            file,
+            fileOptions: const FileOptions(
+              contentType: 'audio/mp4',
+              cacheControl: '3600',
+              upsert: false,
+            ),
+          );
 
-    return _client.storage.from(_bucketName).getPublicUrl(fileName);
+      return _client.storage.from(_bucketName).getPublicUrl(fileName);
+    } finally {
+      try {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {
+        // Silent catch to prevent masking upload failures
+      }
+    }
   }
 
   String _sanitizePathSegment(String value) {

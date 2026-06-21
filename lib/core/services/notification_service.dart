@@ -1,9 +1,14 @@
 import 'dart:developer' as developer;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../features/auth/domain/models/user_model.dart';
 import '../../features/auth/presentation/controllers/auth_controller.dart';
+import '../../features/help_request/domain/models/help_request_model.dart';
+import '../../features/help_request/presentation/screens/help_request_detail_screen.dart';
+import '../../main.dart';
 
 part 'notification_service.g.dart';
 
@@ -36,12 +41,20 @@ class NotificationService extends _$NotificationService {
       );
     });
 
-    // Menangani aksi ketukan pada notifikasi untuk membuka aplikasi
+    // Menangani pesan awal jika aplikasi dibuka dari keadaan mati (terminated)
+    _messaging.getInitialMessage().then((RemoteMessage? message) {
+      if (message != null) {
+        _handleNotificationClick(message);
+      }
+    });
+
+    // Menangani aksi ketukan pada notifikasi untuk membuka aplikasi dari background
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       developer.log(
         'Aplikasi terbuka via ketukan notifikasi: ${message.messageId}',
         name: 'NotificationService',
       );
+      _handleNotificationClick(message);
     });
 
     // Memantau status autentikasi secara reaktif untuk langganan topik relawan
@@ -129,6 +142,35 @@ class NotificationService extends _$NotificationService {
         error: e,
         stackTrace: stackTrace,
       );
+    }
+  }
+
+  /// Memproses deep-link ke detail bantuan berdasarkan data payload notifikasi.
+  Future<void> _handleNotificationClick(RemoteMessage message) async {
+    final data = message.data;
+    final ticketId = data['ticketId'] as String?;
+    if (ticketId != null && ticketId.isNotEmpty) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('help_requests')
+            .doc(ticketId)
+            .get();
+        if (doc.exists) {
+          final ticket = HelpRequestModel.fromMap(doc.data()!, doc.id);
+          navigatorKey.currentState?.push(
+            MaterialPageRoute<void>(
+              builder: (context) => HelpRequestDetailScreen(ticket: ticket),
+            ),
+          );
+        }
+      } catch (e, stackTrace) {
+        developer.log(
+          'Gagal melakukan deep-link ke HelpRequestDetailScreen',
+          name: 'NotificationService',
+          error: e,
+          stackTrace: stackTrace,
+        );
+      }
     }
   }
 }
