@@ -70,4 +70,6 @@ credentials.json
 .supabase/
 supabase/.temp/
 
+# VS Code local workspace configurations
+.vscode/
 
