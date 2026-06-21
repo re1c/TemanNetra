@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/haptic_service.dart';
 import '../../../../core/utils/tts_service.dart';
+import '../../../../core/widgets/voice_note_button.dart';
 import '../../../ai_assistant/presentation/controllers/ai_assistant_controller.dart';
 import '../controllers/help_request_controller.dart';
 
@@ -19,6 +20,7 @@ class CreateHelpRequestScreen extends ConsumerStatefulWidget {
 class _CreateHelpRequestScreenState extends ConsumerState<CreateHelpRequestScreen> {
   final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  String? _recordedVoicePath;
 
   @override
   void initState() {
@@ -27,6 +29,7 @@ class _CreateHelpRequestScreenState extends ConsumerState<CreateHelpRequestScree
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(ttsServiceProvider).speak(
         'Layar buat tiket bantuan baru. Silakan ketik deskripsi bantuan Anda, '
+        'atau rekam pesan suara bantuan menggunakan tombol rekam di bagian bawah, '
         'atau ketuk tombol salin hasil kamera di bagian atas jika sudah memotret objek.'
       );
     });
@@ -73,11 +76,15 @@ class _CreateHelpRequestScreenState extends ConsumerState<CreateHelpRequestScree
     ref.read(hapticServiceProvider).vibrateClick();
     ref.read(ttsServiceProvider).speak('Sedang mengirimkan tiket bantuan...');
 
-    try {
-      await ref
-          .read(helpRequestControllerProvider.notifier)
-          .createTicket(_descriptionController.text.trim());
+    await ref
+        .read(helpRequestControllerProvider.notifier)
+        .createTicket(
+          _descriptionController.text.trim(),
+          voicePath: _recordedVoicePath,
+        );
 
+    final state = ref.read(helpRequestControllerProvider);
+    if (!state.hasError) {
       ref.read(hapticServiceProvider).vibrateSuccess();
       ref.read(ttsServiceProvider).speak(
         'Tiket bantuan berhasil diajukan. '
@@ -88,9 +95,6 @@ class _CreateHelpRequestScreenState extends ConsumerState<CreateHelpRequestScree
       if (mounted) {
         Navigator.of(context).pop();
       }
-    } catch (e) {
-      ref.read(hapticServiceProvider).vibrateError();
-      ref.read(ttsServiceProvider).speak(e.toString());
     }
   }
 
@@ -197,14 +201,50 @@ class _CreateHelpRequestScreenState extends ConsumerState<CreateHelpRequestScree
                       prefixIcon: Icon(Icons.help_center, color: Color(0xFFFFD700)),
                     ),
                     validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Harap masukkan deskripsi bantuan.';
+                      if ((value == null || value.trim().isEmpty) && _recordedVoicePath == null) {
+                        return 'Harap masukkan deskripsi bantuan atau rekam suara.';
                       }
                       return null;
                     },
                   ),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 24),
+
+                VoiceNoteButton(
+                  isDisabled: isLoading,
+                  fullWidth: true,
+                  onVoiceReady: (path) async {
+                    setState(() {
+                      _recordedVoicePath = path;
+                    });
+                    ref.read(hapticServiceProvider).vibrateSuccess();
+                    ref.read(ttsServiceProvider).speak('Rekaman suara berhasil dilampirkan.');
+                  },
+                ),
+                if (_recordedVoicePath != null) ...[
+                  const SizedBox(height: 12),
+                  Semantics(
+                    label: 'Hapus rekaman suara terlampir',
+                    button: true,
+                    child: TextButton.icon(
+                      onPressed: isLoading
+                          ? null
+                          : () {
+                              setState(() {
+                                _recordedVoicePath = null;
+                              });
+                              ref.read(hapticServiceProvider).vibrateClick();
+                              ref.read(ttsServiceProvider).speak('Rekaman suara dihapus.');
+                            },
+                      icon: const Icon(Icons.delete, color: Colors.redAccent),
+                      label: const Text(
+                        'HAPUS REKAMAN SUARA',
+                        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 32),
 
                 // Tombol Kirim berukuran sangat lapang
                 Semantics(

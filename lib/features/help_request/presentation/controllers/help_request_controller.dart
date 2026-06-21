@@ -32,12 +32,27 @@ class HelpRequestController extends _$HelpRequestController {
     // State is AsyncValue<void> representing status of mutation
   }
 
-  Future<void> createTicket(String description) async {
+  Future<void> createTicket(String description, {String? voicePath}) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       await ref.read(helpRequestRepositoryProvider).createHelpRequest(
             description,
+            voicePath: voicePath,
           );
+    });
+  }
+
+  Future<void> cancelHelpRequest(String id) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(helpRequestRepositoryProvider).cancelHelpRequest(id);
+    });
+  }
+
+  Future<void> resolveHelpRequest(String id) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(helpRequestRepositoryProvider).resolveHelpRequest(id);
     });
   }
 

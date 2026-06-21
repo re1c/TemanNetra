@@ -31,6 +31,7 @@ class HelpRequestModel {
   final String? volunteerName;
   final DateTime createdAt;
   final DateTime? resolvedAt;
+  final String? voiceDescriptionUrl;
 
   const HelpRequestModel({
     required this.id,
@@ -42,6 +43,7 @@ class HelpRequestModel {
     this.volunteerName,
     required this.createdAt,
     this.resolvedAt,
+    this.voiceDescriptionUrl,
   });
 
   HelpRequestModel copyWith({
@@ -54,6 +56,7 @@ class HelpRequestModel {
     String? volunteerName,
     DateTime? createdAt,
     DateTime? resolvedAt,
+    String? voiceDescriptionUrl,
   }) {
     return HelpRequestModel(
       id: id ?? this.id,
@@ -65,6 +68,7 @@ class HelpRequestModel {
       volunteerName: volunteerName ?? this.volunteerName,
       createdAt: createdAt ?? this.createdAt,
       resolvedAt: resolvedAt ?? this.resolvedAt,
+      voiceDescriptionUrl: voiceDescriptionUrl ?? this.voiceDescriptionUrl,
     );
   }
 
@@ -79,6 +83,7 @@ class HelpRequestModel {
       'volunteerName': volunteerName,
       'createdAt': createdAt.toIso8601String(),
       'resolvedAt': resolvedAt?.toIso8601String(),
+      'voiceDescriptionUrl': voiceDescriptionUrl,
     };
   }
 
@@ -109,6 +114,7 @@ class HelpRequestModel {
       volunteerName: map['volunteerName'] as String?,
       createdAt: parseDateTime(map['createdAt']),
       resolvedAt: rawResolvedAt != null ? parseDateTime(rawResolvedAt) : null,
+      voiceDescriptionUrl: map['voiceDescriptionUrl'] as String?,
     );
   }
 }

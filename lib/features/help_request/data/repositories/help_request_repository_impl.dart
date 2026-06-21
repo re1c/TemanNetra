@@ -55,14 +55,23 @@ class HelpRequestRepositoryImpl implements HelpRequestRepository {
   }
 
   @override
-  Future<void> createHelpRequest(String description) async {
+  Future<void> createHelpRequest(String description, {String? voicePath}) async {
     final trimmedDescription = description.trim();
 
-    if (trimmedDescription.isEmpty) {
-      throw Exception('Deskripsi bantuan tidak boleh kosong.');
+    if (trimmedDescription.isEmpty && (voicePath == null || voicePath.trim().isEmpty)) {
+      throw Exception('Deskripsi bantuan atau rekaman suara tidak boleh kosong.');
     }
 
-    await _createHelpRequestWithDescription(trimmedDescription);
+    String? voiceUrl;
+    if (voicePath != null && voicePath.trim().isNotEmpty) {
+      final tempId = DateTime.now().millisecondsSinceEpoch.toString();
+      voiceUrl = await _voiceNoteStorageService.uploadVoiceNote(
+        requestId: tempId,
+        localFilePath: voicePath,
+      );
+    }
+
+    await _createHelpRequestWithDescription(trimmedDescription, voiceUrl);
   }
 
   @override
@@ -91,7 +100,7 @@ class HelpRequestRepositoryImpl implements HelpRequestRepository {
         return activeTickets.first;
       }
 
-      return _createHelpRequestWithDescription(_quickHelpDescription);
+      return _createHelpRequestWithDescription(_quickHelpDescription, null);
     } catch (e) {
       throw Exception('Gagal membuka bantuan relawan: ${e.toString()}');
     }
@@ -99,6 +108,7 @@ class HelpRequestRepositoryImpl implements HelpRequestRepository {
 
   Future<HelpRequestModel> _createHelpRequestWithDescription(
     String description,
+    String? voiceUrl,
   ) async {
     final currentUser = _auth.currentUser;
 
@@ -124,6 +134,7 @@ class HelpRequestRepositoryImpl implements HelpRequestRepository {
       'volunteerName': null,
       'createdAt': createdAt,
       'resolvedAt': null,
+      'voiceDescriptionUrl': voiceUrl,
     };
 
     await docRef.set(data);
@@ -150,6 +161,32 @@ class HelpRequestRepositoryImpl implements HelpRequestRepository {
     }
 
     return HelpRequestModel.fromMap(data, docRef.id);
+  }
+
+  @override
+  Future<void> cancelHelpRequest(String id) async {
+    try {
+      await _helpRequestsCollection.doc(id).update({
+        'status': HelpRequestStatus.pending.name,
+        'volunteerId': null,
+        'volunteerName': null,
+        'resolvedAt': null,
+      });
+    } catch (e) {
+      throw Exception('Gagal membatalkan bantuan: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> resolveHelpRequest(String id) async {
+    try {
+      await _helpRequestsCollection.doc(id).update({
+        'status': HelpRequestStatus.resolved.name,
+        'resolvedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Gagal menyelesaikan bantuan: ${e.toString()}');
+    }
   }
 
   @override
@@ -263,6 +300,9 @@ class HelpRequestRepositoryImpl implements HelpRequestRepository {
       'messageText': trimmedMessage,
       'messageUrl': null,
       'createdAt': FieldValue.serverTimestamp(),
+      'messageType': 'text',
+      'isPlayed': false,
+      'duration': null,
     });
   }
 
@@ -297,6 +337,9 @@ class HelpRequestRepositoryImpl implements HelpRequestRepository {
       'messageText': null,
       'messageUrl': voiceUrl,
       'createdAt': FieldValue.serverTimestamp(),
+      'messageType': 'audio',
+      'isPlayed': false,
+      'duration': null,
     });
   }
 }

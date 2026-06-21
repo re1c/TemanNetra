@@ -1,4 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:temannetra/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/models/chat_message_model.dart';
@@ -27,15 +29,26 @@ class _HelpRequestDetailScreenState
     extends ConsumerState<HelpRequestDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   final Set<String> _autoPlayedAudioMessageIds = <String>{};
+  bool _hasSpokenPendingAnnouncement = false;
+  bool _hasSpokenSecurityWarning = false;
 
   @override
   void initState() {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(ttsServiceProvider).speak(
-            'Detail bantuan dibuka. Anda dapat membaca dan mengirim pesan koordinasi di halaman ini.',
-          );
+      if (widget.ticket.status == HelpRequestStatus.claimed) {
+        _hasSpokenSecurityWarning = true;
+        final warningMsg = AppLocalizations.of(context)?.securityWarningAnnouncement ??
+            'Peringatan Keamanan: Jangan pernah menyebutkan kata sandi atau informasi keuangan Anda.';
+        ref.read(ttsServiceProvider).speak(
+              'Detail bantuan dibuka. Relawan telah terhubung. $warningMsg',
+            );
+      } else if (widget.ticket.status != HelpRequestStatus.pending) {
+        ref.read(ttsServiceProvider).speak(
+              'Detail bantuan dibuka. Anda dapat membaca dan mengirim pesan koordinasi di halaman ini.',
+            );
+      }
     });
   }
 
@@ -57,7 +70,7 @@ class _HelpRequestDetailScreenState
       final audioUrl = message.messageUrl?.trim();
       final hasAudio = audioUrl != null && audioUrl.isNotEmpty;
       final isIncoming = message.senderId != currentUserId;
-      final hasNotBeenPlayed = !_autoPlayedAudioMessageIds.contains(message.id);
+      final hasNotBeenPlayed = !_autoPlayedAudioMessageIds.contains(message.id) && !message.isPlayed;
 
       if (hasAudio && isIncoming && hasNotBeenPlayed) {
         return message.id;
@@ -108,14 +121,15 @@ class _HelpRequestDetailScreenState
         '${dt.minute.toString().padLeft(2, '0')}';
   }
 
-  String _mapStatusText(HelpRequestStatus status) {
+  String _mapStatusText(BuildContext context, HelpRequestStatus status) {
+    final l10n = AppLocalizations.of(context)!;
     switch (status) {
       case HelpRequestStatus.pending:
-        return 'Menunggu Relawan';
+        return l10n.ticketStatusPending;
       case HelpRequestStatus.claimed:
-        return 'Sedang Dibantu';
+        return l10n.ticketStatusClaimed;
       case HelpRequestStatus.resolved:
-        return 'Selesai';
+        return l10n.ticketStatusResolved;
     }
   }
 
@@ -158,9 +172,63 @@ class _HelpRequestDetailScreenState
       },
     );
 
-    final statusText = _mapStatusText(widget.ticket.status);
-    final statusColor = _mapStatusColor(widget.ticket.status);
-    final canSendMessage = widget.ticket.status == HelpRequestStatus.claimed;
+    ref.listen<AsyncValue<List<ChatMessageModel>>>(
+      helpRequestMessagesProvider(widget.ticket.id),
+      (previous, next) {
+        final currentUserId = ref.read(authControllerProvider).valueOrNull?.uid;
+        next.whenData((messages) {
+          if (messages.isEmpty) return;
+
+          final latestMessage = messages.last;
+          if (latestMessage.senderId != currentUserId) {
+            final previousList = previous?.valueOrNull;
+            final isNew = previousList != null && !previousList.any((m) => m.id == latestMessage.id);
+            if (isNew) {
+              if (latestMessage.messageText != null && latestMessage.messageText!.isNotEmpty) {
+                ref.read(ttsServiceProvider).speak(
+                  'Pesan baru dari ${latestMessage.senderName}: ${latestMessage.messageText}',
+                );
+              } else if (latestMessage.messageUrl != null && latestMessage.messageUrl!.isNotEmpty) {
+                ref.read(ttsServiceProvider).speak(
+                  'Pesan suara baru diterima dari ${latestMessage.senderName}.',
+                );
+              }
+            }
+          }
+        });
+      },
+    );
+
+    final myRequests = ref.watch(myHelpRequestsProvider).valueOrNull;
+    final currentTicket = myRequests?.firstWhere(
+          (t) => t.id == widget.ticket.id,
+          orElse: () => widget.ticket,
+        ) ??
+        widget.ticket;
+
+    if (!_hasSpokenPendingAnnouncement && currentTicket.status == HelpRequestStatus.pending) {
+      _hasSpokenPendingAnnouncement = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(ttsServiceProvider).speak(
+              AppLocalizations.of(context)!.volunteerWaitingAnnouncement,
+            );
+      });
+    }
+
+    if (!_hasSpokenSecurityWarning && currentTicket.status == HelpRequestStatus.claimed) {
+      _hasSpokenSecurityWarning = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final warningMsg = AppLocalizations.of(context)?.securityWarningAnnouncement ??
+            'Peringatan Keamanan: Jangan pernah menyebutkan kata sandi atau informasi keuangan Anda.';
+        ref.read(ttsServiceProvider).speak(
+              'Relawan terhubung. $warningMsg',
+            );
+      });
+    }
+
+    final statusText = _mapStatusText(context, currentTicket.status);
+    final statusColor = _mapStatusColor(currentTicket.status);
+    final canSendMessage = currentTicket.status == HelpRequestStatus.claimed;
 
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
@@ -174,17 +242,17 @@ class _HelpRequestDetailScreenState
             ref.read(ttsServiceProvider).stop();
             Navigator.of(context).pop();
           },
-          child: const Text(
-            'Kembali',
-            style: TextStyle(
+          child: Text(
+            AppLocalizations.of(context)!.backButtonLabel,
+            style: const TextStyle(
               color: Color(0xFFFFD700),
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
-        title: const Text(
-          'Detail Bantuan',
-          style: TextStyle(
+        title: Text(
+          AppLocalizations.of(context)!.helpRequestDetailsTitle,
+          style: const TextStyle(
             color: Color(0xFFFFD700),
             fontWeight: FontWeight.bold,
             fontSize: 24,
@@ -197,13 +265,98 @@ class _HelpRequestDetailScreenState
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
             child: _TicketSummaryCard(
-              date: _formatDate(widget.ticket.createdAt),
-              description: widget.ticket.description,
+              date: _formatDate(currentTicket.createdAt),
+              description: currentTicket.description,
               statusText: statusText,
               statusColor: statusColor,
-              volunteerName: widget.ticket.volunteerName,
+              volunteerName: currentTicket.volunteerName,
             ),
           ),
+          if (currentTicket.status == HelpRequestStatus.claimed)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Semantics(
+                      label: 'Tombol Selesaikan Bantuan',
+                      hint: 'Ketuk dua kali untuk menyelesaikan sesi bantuan ini.',
+                      button: true,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF81C784),
+                          foregroundColor: Colors.black,
+                          minimumSize: const Size.fromHeight(56),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: ref.watch(helpRequestControllerProvider).isLoading
+                            ? null
+                            : () async {
+                                ref.read(hapticServiceProvider).vibrateClick();
+                                ref.read(ttsServiceProvider).speak('Sedang menyelesaikan bantuan...');
+                                await ref
+                                    .read(helpRequestControllerProvider.notifier)
+                                    .resolveHelpRequest(currentTicket.id);
+                                final state = ref.read(helpRequestControllerProvider);
+                                if (!state.hasError) {
+                                  ref.read(hapticServiceProvider).vibrateSuccess();
+                                  ref.read(ttsServiceProvider).speak('Bantuan telah diselesaikan.');
+                                }
+                              },
+                        child: const Text(
+                          'Selesai',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Semantics(
+                      label: 'Tombol Batalkan Bantuan',
+                      hint: 'Ketuk dua kali untuk membatalkan relawan ini dan mempublikasikan kembali bantuan Anda.',
+                      button: true,
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                          side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                          minimumSize: const Size.fromHeight(56),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: ref.watch(helpRequestControllerProvider).isLoading
+                            ? null
+                            : () async {
+                                ref.read(hapticServiceProvider).vibrateClick();
+                                ref.read(ttsServiceProvider).speak('Sedang membatalkan bantuan...');
+                                await ref
+                                    .read(helpRequestControllerProvider.notifier)
+                                    .cancelHelpRequest(currentTicket.id);
+                                final state = ref.read(helpRequestControllerProvider);
+                                if (!state.hasError) {
+                                  ref.read(hapticServiceProvider).vibrateSuccess();
+                                  ref.read(ttsServiceProvider).speak('Bantuan telah dibatalkan.');
+                                }
+                              },
+                        child: const Text(
+                          'Batal',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           const Padding(
             padding: EdgeInsets.fromLTRB(22, 4, 22, 8),
             child: Align(
@@ -226,7 +379,7 @@ class _HelpRequestDetailScreenState
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: Colors.white12),
               ),
-              child: ref.watch(helpRequestMessagesProvider(widget.ticket.id)).when(
+              child: ref.watch(helpRequestMessagesProvider(currentTicket.id)).when(
                     loading: () => const Center(
                       child: CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation<Color>(
@@ -287,6 +440,12 @@ class _HelpRequestDetailScreenState
                             autoPlay: shouldAutoPlay,
                             onAutoPlayStarted: () {
                               _autoPlayedAudioMessageIds.add(message.id);
+                              FirebaseFirestore.instance
+                                  .collection('help_requests')
+                                  .doc(currentTicket.id)
+                                  .collection('messages')
+                                  .doc(message.id)
+                                  .update({'isPlayed': true}).catchError((_) {});
                             },
                           );
                         },
@@ -295,13 +454,44 @@ class _HelpRequestDetailScreenState
                   ),
             ),
           ),
-          if (canSendMessage)
+          if (canSendMessage) ...[
+            Container(
+              color: const Color(0xFF2C1616),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0x80FF5252)),
+              ),
+              child: Semantics(
+                label: AppLocalizations.of(context)?.securityWarningAnnouncement ??
+                    'Peringatan Keamanan: Jangan pernah menyebutkan kata sandi atau informasi keuangan Anda.',
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.of(context)?.securityWarningAnnouncement ??
+                            'Peringatan Keamanan: Jangan pernah menyebutkan kata sandi atau informasi keuangan Anda.',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             _MessageComposer(
               controller: _messageController,
               isLoading: ref.watch(helpRequestControllerProvider).isLoading,
               onSendText: _sendTextMessage,
               onSendVoice: _sendVoiceMessage,
             )
+          ]
           else
             SafeArea(
               top: false,
@@ -310,7 +500,7 @@ class _HelpRequestDetailScreenState
                 color: Colors.black,
                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
                 child: Text(
-                  widget.ticket.status == HelpRequestStatus.pending
+                  currentTicket.status == HelpRequestStatus.pending
                       ? 'Pesan dapat dikirim setelah relawan menerima bantuan Anda.'
                       : 'Bantuan sudah selesai. Percakapan tidak dapat dilanjutkan.',
                   textAlign: TextAlign.center,
