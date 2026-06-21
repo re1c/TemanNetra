@@ -10,6 +10,9 @@ import 'features/auth/presentation/controllers/auth_controller.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/tunanetra_home_screen.dart';
 import 'features/auth/presentation/screens/volunteer_home_screen.dart';
+import 'features/auth/presentation/screens/admin_verification_dashboard_screen.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,6 +50,7 @@ class TemanNetraApp extends ConsumerWidget {
     final authState = ref.watch(authControllerProvider);
 
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'TemanNetra',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -67,6 +71,10 @@ class TemanNetraApp extends ConsumerWidget {
 
           if (user.role == UserRole.tunanetra) {
             return const TunanetraHomeScreen();
+          }
+
+          if (user.role == UserRole.admin) {
+            return const AdminVerificationDashboardScreen();
           }
 
           return const VolunteerHomeScreen();

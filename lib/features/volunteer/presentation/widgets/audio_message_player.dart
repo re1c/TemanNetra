@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
+import 'package:audio_session/audio_session.dart' as sys_audio;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
@@ -33,6 +35,8 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
   void initState() {
     super.initState();
 
+    _configureAudioSession();
+
     _playerStateSubscription = _audioPlayer.onPlayerStateChanged.listen(
       (state) {
         if (!mounted) {
@@ -54,6 +58,8 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
         _isPlaying = false;
         _isLoading = false;
       });
+
+      _deactivateAudioSession();
     });
 
     if (widget.autoPlay) {
@@ -67,6 +73,7 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
   void dispose() {
     _playerStateSubscription?.cancel();
     _playerCompleteSubscription?.cancel();
+    _deactivateAudioSession();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -92,7 +99,12 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
     });
 
     try {
-      await _audioPlayer.play(UrlSource(widget.audioUrl));
+      final session = await sys_audio.AudioSession.instance;
+      if (await session.setActive(true)) {
+        await _audioPlayer.play(UrlSource(widget.audioUrl));
+      } else {
+        throw Exception('Gagal mengaktifkan AudioSession.');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -122,6 +134,7 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
 
     try {
       await _audioPlayer.stop();
+      await _deactivateAudioSession();
     } catch (_) {
       // Abaikan jika gagal menghentikan audio yang tidak aktif
     } finally {
@@ -131,6 +144,38 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
         });
       }
     }
+  }
+
+  Future<void> _configureAudioSession() async {
+    try {
+      final session = await sys_audio.AudioSession.instance;
+      await session.configure(sys_audio.AudioSessionConfiguration(
+        avAudioSessionCategory: sys_audio.AVAudioSessionCategory.playAndRecord,
+        avAudioSessionCategoryOptions: sys_audio.AVAudioSessionCategoryOptions.allowBluetooth |
+            sys_audio.AVAudioSessionCategoryOptions.defaultToSpeaker,
+        avAudioSessionMode: sys_audio.AVAudioSessionMode.spokenAudio,
+        avAudioSessionRouteSharingPolicy:
+            sys_audio.AVAudioSessionRouteSharingPolicy.defaultPolicy,
+        androidAudioAttributes: const sys_audio.AndroidAudioAttributes(
+          contentType: sys_audio.AndroidAudioContentType.speech,
+          usage: sys_audio.AndroidAudioUsage.assistanceAccessibility,
+        ),
+        androidAudioFocusGainType: sys_audio.AndroidAudioFocusGainType.gain,
+      ));
+    } catch (e) {
+      developer.log(
+        'Gagal mengonfigurasi AudioSession',
+        name: 'AudioMessagePlayer',
+        error: e,
+      );
+    }
+  }
+
+  Future<void> _deactivateAudioSession() async {
+    try {
+      final session = await sys_audio.AudioSession.instance;
+      await session.setActive(false);
+    } catch (_) {}
   }
 
   Future<void> _toggleAudio() async {

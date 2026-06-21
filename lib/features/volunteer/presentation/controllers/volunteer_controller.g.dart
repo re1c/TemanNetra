@@ -25,8 +25,27 @@ final volunteerRepositoryProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef VolunteerRepositoryRef = AutoDisposeProviderRef<VolunteerRepository>;
+String _$isKtpVerificationEnabledHash() =>
+    r'bb6e75afbcf3cc6fef753147e18386a4af3e6442';
+
+/// See also [isKtpVerificationEnabled].
+@ProviderFor(isKtpVerificationEnabled)
+final isKtpVerificationEnabledProvider =
+    AutoDisposeStreamProvider<bool>.internal(
+      isKtpVerificationEnabled,
+      name: r'isKtpVerificationEnabledProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$isKtpVerificationEnabledHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef IsKtpVerificationEnabledRef = AutoDisposeStreamProviderRef<bool>;
 String _$pendingHelpRequestsHash() =>
-    r'0274b45aa8e65707fb868537cd7eeb33c5299d62';
+    r'ea3533f1e7f893e5dcbc5b8502fe21432ca45b8c';
 
 /// See also [pendingHelpRequests].
 @ProviderFor(pendingHelpRequests)
@@ -46,7 +65,7 @@ final pendingHelpRequestsProvider =
 typedef PendingHelpRequestsRef =
     AutoDisposeStreamProviderRef<List<HelpRequestModel>>;
 String _$myClaimedHelpRequestsHash() =>
-    r'4ae1a01a696a6c3a3c641f59377fae0ff904786f';
+    r'87d3c935b21fc0f6620112691f5fba8f1f22d051';
 
 /// See also [myClaimedHelpRequests].
 @ProviderFor(myClaimedHelpRequests)
@@ -208,7 +227,7 @@ class _ChatMessagesProviderElement
 }
 
 String _$volunteerControllerHash() =>
-    r'133bafc6508d22d0ae23788ec80722af8e33e20c';
+    r'312940365e7b3ad6f79f19adb7ef5e392285e3ee';
 
 /// See also [VolunteerController].
 @ProviderFor(VolunteerController)
