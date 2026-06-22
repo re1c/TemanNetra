@@ -129,3 +129,13 @@ class VolunteerController extends _$VolunteerController {
     }
   }
 }
+
+@riverpod
+class VolunteerDashboardTabController extends _$VolunteerDashboardTabController {
+  @override
+  int build() => 0;
+
+  void setTab(int index) {
+    state = index;
+  }
+}

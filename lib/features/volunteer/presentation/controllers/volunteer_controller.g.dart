@@ -227,7 +227,7 @@ class _ChatMessagesProviderElement
 }
 
 String _$volunteerControllerHash() =>
-    r'312940365e7b3ad6f79f19adb7ef5e392285e3ee';
+    r'e22407dddcf4e2e88c9978a676fd7a229685596d';
 
 /// See also [VolunteerController].
 @ProviderFor(VolunteerController)
@@ -243,5 +243,22 @@ final volunteerControllerProvider =
     );
 
 typedef _$VolunteerController = AutoDisposeAsyncNotifier<void>;
+String _$volunteerDashboardTabControllerHash() =>
+    r'5c3c814e759df6ba0c79cd7a40a75b84bf152809';
+
+/// See also [VolunteerDashboardTabController].
+@ProviderFor(VolunteerDashboardTabController)
+final volunteerDashboardTabControllerProvider =
+    AutoDisposeNotifierProvider<VolunteerDashboardTabController, int>.internal(
+      VolunteerDashboardTabController.new,
+      name: r'volunteerDashboardTabControllerProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$volunteerDashboardTabControllerHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+typedef _$VolunteerDashboardTabController = AutoDisposeNotifier<int>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
