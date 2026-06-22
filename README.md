@@ -17,7 +17,7 @@ The codebase is structured around a Feature-First modular design. Functional CRU
   - **Update**: Modify active ticket descriptions or re-evaluate local visual text analysis.
   - **Delete**: Remove past ticket logs from the database for user privacy.
 
-### Member 2: Sultan Alif (NRP 5025231219)
+### Member 2: Sultan Alif Ibrahim A. (NRP 5025231219)
 * **Module**: Volunteer Dashboard (Volunteer Side)
 * **CRUD Scope**:
   - **Create**: Send text responses, record and upload voice notes to Supabase Storage, and trigger notifications for relevant assistance-request updates.
