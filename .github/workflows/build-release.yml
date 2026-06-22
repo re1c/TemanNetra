@@ -1,0 +1,57 @@
+name: "Production Automated Release Pipeline"
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  compile-android-binaries:
+    name: "AOT Compilation & Cryptographic Signing"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "1. Source Workspace Checkout"
+        uses: actions/checkout@v4
+
+      - name: "2. Initialize Java Runtime Environment"
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: "3. Initialize Flutter SDK Engine"
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: "4. Inject Keystore & Properties Cryptographic Secrets"
+        run: |
+          echo "${{ secrets.KEY_STORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          echo "${{ secrets.KEY_PROPERTIES_CONTENT }}" > android/key.properties
+
+      - name: "5. Resolve Project Dependency Tree"
+        run: flutter pub get
+
+      - name: "6. Code Generation Pass"
+        run: dart run build_runner build -d
+
+      - name: "7. Compile Production Obfuscated Split APKs"
+        run: |
+          flutter build apk --release \
+            --obfuscate --split-debug-info=build/app/outputs/symbols \
+            --split-per-abi \
+            --dart-define=SUPABASE_URL="${{ secrets.PRODUCTION_SUPABASE_URL }}" \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="${{ secrets.PRODUCTION_SUPABASE_KEY }}" \
+            --dart-define=GEMINI_API_KEY="${{ secrets.PRODUCTION_GROQ_KEY }}"
+
+      - name: "8. Archive Compiled Target Release Artifacts"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "TemanNetra-Release-APKs"
+          path: build/app/outputs/flutter-apk/*-release.apk
+          if-no-files-found: error
+          retention-days: 7
+
+
