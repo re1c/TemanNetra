@@ -166,8 +166,15 @@ class HelpRequestRepositoryImpl implements HelpRequestRepository {
   @override
   Future<void> cancelHelpRequest(String id) async {
     try {
+      final messagesSnapshot = await _messagesCollection(id).get();
+      final batch = _firestore.batch();
+      for (final doc in messagesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
       await _helpRequestsCollection.doc(id).update({
-        'status': HelpRequestStatus.pending.name,
+        'status': HelpRequestStatus.cancelled.name,
         'volunteerId': null,
         'volunteerName': null,
         'resolvedAt': null,

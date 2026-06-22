@@ -7,7 +7,10 @@ enum HelpRequestStatus {
   claimed,
 
   /// Bantuan telah selesai diselesaikan dan tiket ditutup.
-  resolved;
+  resolved,
+
+  /// Permintaan bantuan dibatalkan.
+  cancelled;
 
   static HelpRequestStatus fromString(String value) {
     return HelpRequestStatus.values.firstWhere(
