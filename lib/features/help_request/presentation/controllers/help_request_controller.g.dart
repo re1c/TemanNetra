@@ -192,7 +192,7 @@ final myHelpRequestsProvider =
 typedef MyHelpRequestsRef =
     AutoDisposeStreamProviderRef<List<HelpRequestModel>>;
 String _$helpRequestControllerHash() =>
-    r'a87658afee9aeabecae0256ec388182dec46fed4';
+    r'7cda7a8237085c972498dccef22ce256e9100f23';
 
 /// See also [HelpRequestController].
 @ProviderFor(HelpRequestController)

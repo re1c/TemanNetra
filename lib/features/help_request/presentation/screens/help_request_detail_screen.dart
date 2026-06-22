@@ -1,5 +1,9 @@
+import 'dart:io';
+import 'package:camera/camera.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:temannetra/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,6 +35,8 @@ class _HelpRequestDetailScreenState
   final Set<String> _autoPlayedAudioMessageIds = <String>{};
   bool _hasSpokenPendingAnnouncement = false;
   bool _hasSpokenSecurityWarning = false;
+  bool _isSendingImage = false;
+  bool _hasShownSecurityWarningDialog = false;
 
   @override
   void initState() {
@@ -44,12 +50,83 @@ class _HelpRequestDetailScreenState
         ref.read(ttsServiceProvider).speak(
               'Detail bantuan dibuka. Relawan telah terhubung. $warningMsg',
             );
+        _showSecurityWarningDialog();
       } else if (widget.ticket.status != HelpRequestStatus.pending) {
         ref.read(ttsServiceProvider).speak(
               'Detail bantuan dibuka. Anda dapat membaca dan mengirim pesan koordinasi di halaman ini.',
             );
       }
     });
+  }
+
+  void _showSecurityWarningDialog() {
+    if (_hasShownSecurityWarningDialog || !mounted) return;
+    _hasShownSecurityWarningDialog = true;
+
+    final warningMsg = AppLocalizations.of(context)?.securityWarningAnnouncement ??
+        'Jangan pernah menyebutkan kata sandi atau informasi keuangan Anda.';
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: Color(0xFFFFD700), width: 2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFFFD700), size: 24),
+              SizedBox(width: 10),
+              Text(
+                'Peringatan Keamanan',
+                style: TextStyle(
+                  color: Color(0xFFFFD700),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            warningMsg,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              height: 1.45,
+            ),
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFD700),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  ref.read(hapticServiceProvider).vibrateClick();
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text(
+                  'Saya Mengerti',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -115,6 +192,109 @@ class _HelpRequestDetailScreenState
     }
   }
 
+  Future<void> _takeAndSendPhoto() async {
+    ref.read(hapticServiceProvider).vibrateClick();
+    final file = await Navigator.of(context).push<XFile>(
+      MaterialPageRoute(
+        builder: (_) => const CameraCaptureScreen(),
+      ),
+    );
+    if (file != null) {
+      await _sendImageMessage(file);
+    }
+  }
+
+  Future<void> _sendImageMessage(XFile file) async {
+    final currentUser = ref.read(authControllerProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    setState(() {
+      _isSendingImage = true;
+    });
+
+    try {
+      final bytes = await File(file.path).readAsBytes();
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) {
+        throw Exception('Gagal mendecode gambar.');
+      }
+
+      img.Image resizedImage = decoded;
+      if (decoded.width > 1024 || decoded.height > 1024) {
+        if (decoded.width > decoded.height) {
+          resizedImage = img.copyResize(decoded, width: 1024);
+        } else {
+          resizedImage = img.copyResize(decoded, height: 1024);
+        }
+      }
+
+      final compressedBytes = img.encodeJpg(resizedImage, quality: 70);
+      final compressedFile = File(file.path);
+      await compressedFile.writeAsBytes(compressedBytes);
+
+      final String secureFileName = '${widget.ticket.id}_CHAT_IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final client = Supabase.instance.client;
+      await client.storage.from('chat_attachments').upload(
+            secureFileName,
+            compressedFile,
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+              cacheControl: '3600',
+              upsert: true,
+            ),
+          );
+
+      final imageUrl = client.storage.from('chat_attachments').getPublicUrl(secureFileName).toString();
+
+      final senderName = currentUser.name.isEmpty ? 'Pengguna TemanNetra' : currentUser.name;
+      final messageDocRef = FirebaseFirestore.instance
+          .collection('help_requests')
+          .doc(widget.ticket.id)
+          .collection('messages')
+          .doc();
+
+      await messageDocRef.set({
+        'id': messageDocRef.id,
+        'senderId': currentUser.uid,
+        'senderName': senderName,
+        'messageText': null,
+        'messageUrl': imageUrl,
+        'createdAt': FieldValue.serverTimestamp(),
+        'messageType': 'image',
+        'isPlayed': false,
+        'duration': null,
+      });
+
+      ref.read(hapticServiceProvider).vibrateSuccess();
+      ref.read(ttsServiceProvider).speak('Foto berhasil dikirim.');
+    } catch (e) {
+      ref.read(hapticServiceProvider).vibrateError();
+      ref.read(ttsServiceProvider).speak('Gagal mengirim foto: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mengirim foto: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      try {
+        final f = File(file.path);
+        if (await f.exists()) {
+          await f.delete();
+        }
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          _isSendingImage = false;
+        });
+      }
+    }
+  }
+
   String _formatDate(DateTime dt) {
     return '${dt.day}/${dt.month}/${dt.year} pukul '
         '${dt.hour.toString().padLeft(2, '0')}:'
@@ -122,14 +302,16 @@ class _HelpRequestDetailScreenState
   }
 
   String _mapStatusText(BuildContext context, HelpRequestStatus status) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     switch (status) {
       case HelpRequestStatus.pending:
-        return l10n.ticketStatusPending;
+        return l10n?.ticketStatusPending ?? 'Menunggu Relawan';
       case HelpRequestStatus.claimed:
-        return l10n.ticketStatusClaimed;
+        return l10n?.ticketStatusClaimed ?? 'Sedang Dibantu';
       case HelpRequestStatus.resolved:
-        return l10n.ticketStatusResolved;
+        return l10n?.ticketStatusResolved ?? 'Selesai';
+      case HelpRequestStatus.cancelled:
+        return 'Dibatalkan';
     }
   }
 
@@ -141,11 +323,14 @@ class _HelpRequestDetailScreenState
         return const Color(0xFF64B5F6);
       case HelpRequestStatus.resolved:
         return const Color(0xFF81C784);
+      case HelpRequestStatus.cancelled:
+        return Colors.redAccent;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     ref.listen<AsyncValue<void>>(
       helpRequestControllerProvider,
       (previous, next) {
@@ -172,6 +357,47 @@ class _HelpRequestDetailScreenState
       },
     );
 
+    ref.listen<AsyncValue<List<HelpRequestModel>>>(
+      myHelpRequestsProvider,
+      (previous, next) {
+        final prevList = previous?.valueOrNull;
+        final nextList = next.valueOrNull;
+        if (nextList == null) return;
+
+        final ticketExists = nextList.any((t) => t.id == widget.ticket.id);
+        if (!ticketExists) {
+          if (Navigator.of(context).canPop()) {
+            ref.invalidate(helpRequestMessagesProvider(widget.ticket.id));
+            ref.invalidate(myHelpRequestsProvider);
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+          return;
+        }
+
+        if (prevList == null) return;
+
+        final prevTicket = prevList.firstWhere(
+          (t) => t.id == widget.ticket.id,
+          orElse: () => widget.ticket,
+        );
+        final nextTicket = nextList.firstWhere(
+          (t) => t.id == widget.ticket.id,
+          orElse: () => widget.ticket,
+        );
+
+        if (prevTicket.status == HelpRequestStatus.claimed) {
+          if (nextTicket.status == HelpRequestStatus.resolved ||
+              nextTicket.status == HelpRequestStatus.pending) {
+            if (Navigator.of(context).canPop()) {
+              ref.invalidate(helpRequestMessagesProvider(widget.ticket.id));
+              ref.invalidate(myHelpRequestsProvider);
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            }
+          }
+        }
+      },
+    );
+
     ref.listen<AsyncValue<List<ChatMessageModel>>>(
       helpRequestMessagesProvider(widget.ticket.id),
       (previous, next) {
@@ -184,13 +410,17 @@ class _HelpRequestDetailScreenState
             final previousList = previous?.valueOrNull;
             final isNew = previousList != null && !previousList.any((m) => m.id == latestMessage.id);
             if (isNew) {
-              if (latestMessage.messageText != null && latestMessage.messageText!.isNotEmpty) {
+              if (latestMessage.messageType == 'text' && latestMessage.messageText != null && latestMessage.messageText!.isNotEmpty) {
                 ref.read(ttsServiceProvider).speak(
                   'Pesan baru dari ${latestMessage.senderName}: ${latestMessage.messageText}',
                 );
-              } else if (latestMessage.messageUrl != null && latestMessage.messageUrl!.isNotEmpty) {
+              } else if (latestMessage.messageType == 'audio' && latestMessage.messageUrl != null && latestMessage.messageUrl!.isNotEmpty) {
                 ref.read(ttsServiceProvider).speak(
                   'Pesan suara baru diterima dari ${latestMessage.senderName}.',
+                );
+              } else if (latestMessage.messageType == 'image') {
+                ref.read(ttsServiceProvider).speak(
+                  'Foto baru diterima dari ${latestMessage.senderName}.',
                 );
               }
             }
@@ -210,7 +440,8 @@ class _HelpRequestDetailScreenState
       _hasSpokenPendingAnnouncement = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(ttsServiceProvider).speak(
-              AppLocalizations.of(context)!.volunteerWaitingAnnouncement,
+              l10n?.volunteerWaitingAnnouncement ??
+                  'Permintaan bantuan berhasil dikirim. Sedang mencari relawan terdekat. Mohon tunggu, Anda dapat mengirim pesan setelah relawan terhubung.',
             );
       });
     }
@@ -223,6 +454,7 @@ class _HelpRequestDetailScreenState
         ref.read(ttsServiceProvider).speak(
               'Relawan terhubung. $warningMsg',
             );
+        _showSecurityWarningDialog();
       });
     }
 
@@ -240,10 +472,12 @@ class _HelpRequestDetailScreenState
           onPressed: () {
             ref.read(hapticServiceProvider).vibrateClick();
             ref.read(ttsServiceProvider).stop();
-            Navigator.of(context).pop();
+            ref.invalidate(helpRequestMessagesProvider(widget.ticket.id));
+            ref.invalidate(myHelpRequestsProvider);
+            Navigator.of(context).popUntil((route) => route.isFirst);
           },
           child: Text(
-            AppLocalizations.of(context)!.backButtonLabel,
+            l10n?.backButtonLabel ?? 'Kembali',
             style: const TextStyle(
               color: Color(0xFFFFD700),
               fontWeight: FontWeight.bold,
@@ -251,7 +485,7 @@ class _HelpRequestDetailScreenState
           ),
         ),
         title: Text(
-          AppLocalizations.of(context)!.helpRequestDetailsTitle,
+          l10n?.helpRequestDetailsTitle ?? 'Detail Bantuan',
           style: const TextStyle(
             color: Color(0xFFFFD700),
             fontWeight: FontWeight.bold,
@@ -275,86 +509,46 @@ class _HelpRequestDetailScreenState
           if (currentTicket.status == HelpRequestStatus.claimed)
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Semantics(
-                      label: 'Tombol Selesaikan Bantuan',
-                      hint: 'Ketuk dua kali untuk menyelesaikan sesi bantuan ini.',
-                      button: true,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF81C784),
-                          foregroundColor: Colors.black,
-                          minimumSize: const Size.fromHeight(56),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        onPressed: ref.watch(helpRequestControllerProvider).isLoading
-                            ? null
-                            : () async {
-                                ref.read(hapticServiceProvider).vibrateClick();
-                                ref.read(ttsServiceProvider).speak('Sedang menyelesaikan bantuan...');
-                                await ref
-                                    .read(helpRequestControllerProvider.notifier)
-                                    .resolveHelpRequest(currentTicket.id);
-                                final state = ref.read(helpRequestControllerProvider);
-                                if (!state.hasError) {
-                                  ref.read(hapticServiceProvider).vibrateSuccess();
-                                  ref.read(ttsServiceProvider).speak('Bantuan telah diselesaikan.');
-                                }
-                              },
-                        child: const Text(
-                          'Selesai',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+              child: Semantics(
+                label: 'Tombol Selesaikan Bantuan',
+                hint: 'Ketuk dua kali untuk menyelesaikan sesi bantuan ini.',
+                button: true,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF81C784),
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size.fromHeight(64),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Semantics(
-                      label: 'Tombol Batalkan Bantuan',
-                      hint: 'Ketuk dua kali untuk membatalkan relawan ini dan mempublikasikan kembali bantuan Anda.',
-                      button: true,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                          side: const BorderSide(color: Colors.redAccent, width: 1.5),
-                          minimumSize: const Size.fromHeight(56),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        onPressed: ref.watch(helpRequestControllerProvider).isLoading
-                            ? null
-                            : () async {
-                                ref.read(hapticServiceProvider).vibrateClick();
-                                ref.read(ttsServiceProvider).speak('Sedang membatalkan bantuan...');
-                                await ref
-                                    .read(helpRequestControllerProvider.notifier)
-                                    .cancelHelpRequest(currentTicket.id);
-                                final state = ref.read(helpRequestControllerProvider);
-                                if (!state.hasError) {
-                                  ref.read(hapticServiceProvider).vibrateSuccess();
-                                  ref.read(ttsServiceProvider).speak('Bantuan telah dibatalkan.');
-                                }
-                              },
-                        child: const Text(
-                          'Batal',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                  onPressed: ref.watch(helpRequestControllerProvider).isLoading
+                      ? null
+                      : () async {
+                          ref.read(hapticServiceProvider).vibrateClick();
+                          ref.read(ttsServiceProvider).speak('Sedang menyelesaikan bantuan...');
+                          ref.invalidate(helpRequestMessagesProvider(currentTicket.id));
+                          ref.invalidate(myHelpRequestsProvider);
+                          await ref
+                              .read(helpRequestControllerProvider.notifier)
+                              .resolveHelpRequest(currentTicket.id);
+                          final state = ref.read(helpRequestControllerProvider);
+                          if (!state.hasError) {
+                            ref.read(hapticServiceProvider).vibrateSuccess();
+                            ref.read(ttsServiceProvider).speak('Bantuan telah diselesaikan.');
+                            if (context.mounted) {
+                              Navigator.of(context).popUntil((route) => route.isFirst);
+                            }
+                          }
+                        },
+                  child: const Text(
+                    'Selesai',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           const Padding(
@@ -425,12 +619,14 @@ class _HelpRequestDetailScreenState
                         );
                       }
 
+                      final reversedMessages = messages.reversed.toList();
                       return ListView.separated(
+                        reverse: true,
                         padding: const EdgeInsets.all(14),
-                        itemCount: messages.length,
+                        itemCount: reversedMessages.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
-                          final message = messages[index];
+                          final message = reversedMessages[index];
                           final isMine = message.senderId == currentUserId;
                           final shouldAutoPlay = message.id == autoPlayMessageId;
 
@@ -454,44 +650,14 @@ class _HelpRequestDetailScreenState
                   ),
             ),
           ),
-          if (canSendMessage) ...[
-            Container(
-              color: const Color(0xFF2C1616),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0x80FF5252)),
-              ),
-              child: Semantics(
-                label: AppLocalizations.of(context)?.securityWarningAnnouncement ??
-                    'Peringatan Keamanan: Jangan pernah menyebutkan kata sandi atau informasi keuangan Anda.',
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        AppLocalizations.of(context)?.securityWarningAnnouncement ??
-                            'Peringatan Keamanan: Jangan pernah menyebutkan kata sandi atau informasi keuangan Anda.',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          if (canSendMessage)
             _MessageComposer(
               controller: _messageController,
-              isLoading: ref.watch(helpRequestControllerProvider).isLoading,
+              isLoading: ref.watch(helpRequestControllerProvider).isLoading || _isSendingImage,
               onSendText: _sendTextMessage,
               onSendVoice: _sendVoiceMessage,
+              onSendPhoto: _takeAndSendPhoto,
             )
-          ]
           else
             SafeArea(
               top: false,
@@ -499,17 +665,75 @@ class _HelpRequestDetailScreenState
                 width: double.infinity,
                 color: Colors.black,
                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                child: Text(
-                  currentTicket.status == HelpRequestStatus.pending
-                      ? 'Pesan dapat dikirim setelah relawan menerima bantuan Anda.'
-                      : 'Bantuan sudah selesai. Percakapan tidak dapat dilanjutkan.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                    height: 1.4,
-                  ),
-                ),
+                child: currentTicket.status == HelpRequestStatus.pending
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Pesan dapat dikirim setelah relawan menerima bantuan Anda.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Semantics(
+                            label: 'Tombol Batalkan Permintaan',
+                            hint: 'Ketuk dua kali untuk membatalkan permintaan bantuan ini.',
+                            button: true,
+                            child: SizedBox(
+                              height: 64,
+                              width: double.infinity,
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.redAccent,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                onPressed: ref.watch(helpRequestControllerProvider).isLoading
+                                    ? null
+                                    : () async {
+                                        ref.read(hapticServiceProvider).vibrateClick();
+                                        ref.read(ttsServiceProvider).speak('Sedang membatalkan permintaan...');
+                                        ref.invalidate(helpRequestMessagesProvider(currentTicket.id));
+                                        ref.invalidate(myHelpRequestsProvider);
+                                        await ref
+                                            .read(helpRequestControllerProvider.notifier)
+                                            .cancelHelpRequest(currentTicket.id);
+                                        final state = ref.read(helpRequestControllerProvider);
+                                        if (!state.hasError) {
+                                          ref.read(hapticServiceProvider).vibrateSuccess();
+                                          ref.read(ttsServiceProvider).speak('Permintaan telah dibatalkan.');
+                                          if (context.mounted) {
+                                            Navigator.of(context).popUntil((route) => route.isFirst);
+                                          }
+                                        }
+                                      },
+                                child: const Text(
+                                  'Batalkan Permintaan',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Text(
+                        'Bantuan sudah selesai. Percakapan tidak dapat dilanjutkan.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                          height: 1.4,
+                        ),
+                      ),
               ),
             ),
         ],
@@ -614,18 +838,27 @@ class _TicketSummaryCard extends StatelessWidget {
   }
 }
 
-class _MessageComposer extends StatelessWidget {
+class _MessageComposer extends StatefulWidget {
   final TextEditingController controller;
   final bool isLoading;
   final VoidCallback onSendText;
   final Future<void> Function(String voicePath) onSendVoice;
+  final VoidCallback onSendPhoto;
 
   const _MessageComposer({
     required this.controller,
     required this.isLoading,
     required this.onSendText,
     required this.onSendVoice,
+    required this.onSendPhoto,
   });
+
+  @override
+  State<_MessageComposer> createState() => _MessageComposerState();
+}
+
+class _MessageComposerState extends State<_MessageComposer> {
+  bool _isRecording = false;
 
   @override
   Widget build(BuildContext context) {
@@ -635,88 +868,54 @@ class _MessageComposer extends StatelessWidget {
         color: Colors.black,
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            VoiceNoteButton(
-              isDisabled: isLoading,
-              fullWidth: true,
-              height: 72,
-              fontSize: 21,
-              onVoiceReady: onSendVoice,
-            ),
-            const SizedBox(height: 10),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    enabled: !isLoading,
-                    minLines: 1,
-                    maxLines: 2,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      height: 1.3,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Tulis pesan teks',
-                      hintStyle: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 16,
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFF181818),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 14,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.white54),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(
-                          color: Color(0xFFFFD700),
-                          width: 2,
+            Visibility(
+              visible: !_isRecording,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Semantics(
+                  label: 'Tombol Kirim Foto. Ketuk dua kali untuk membuka kamera dan mengambil foto.',
+                  button: true,
+                  child: SizedBox(
+                    height: 64,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFD700),
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      onPressed: widget.isLoading ? null : widget.onSendPhoto,
+                      icon: const Icon(Icons.camera_alt, size: 28),
+                      label: const Text(
+                        'Kirim Foto',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  height: 54,
-                  width: 88,
-                  child: FilledButton(
-                    onPressed: isLoading ? null : onSendText,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFD700),
-                      foregroundColor: Colors.black,
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: isLoading
-                        ? const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              color: Colors.black,
-                            ),
-                          )
-                        : const Text(
-                            'Kirim',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                  ),
-                ),
-              ],
+              ),
+            ),
+            SizedBox(
+              height: _isRecording ? 72 : 64,
+              child: VoiceNoteButton(
+                key: const ValueKey('tunanetra_voice_note_button'),
+                isDisabled: widget.isLoading,
+                isCompact: false,
+                height: _isRecording ? 72 : 64,
+                fontSize: 20,
+                label: 'Mulai Rekam Suara',
+                icon: Icons.mic,
+                onVoiceReady: widget.onSendVoice,
+                onRecordingChanged: (recording) {
+                  setState(() {
+                    _isRecording = recording;
+                  });
+                },
+              ),
             ),
           ],
         ),
@@ -748,12 +947,15 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final messageText = message.messageText?.trim();
     final messageUrl = message.messageUrl?.trim();
-    final hasAudio = messageUrl != null && messageUrl.isNotEmpty;
+    final isAudio = message.messageType == 'audio';
+    final isImage = message.messageType == 'image';
 
     return Semantics(
-      label: hasAudio
-          ? 'Voice note dari ${message.senderName}.'
-          : 'Pesan dari ${message.senderName}. Isi pesan: ${messageText ?? "Pesan kosong"}.',
+      label: isImage
+          ? 'Kiriman foto dari ${message.senderName}.'
+          : isAudio
+              ? 'Voice note dari ${message.senderName}.'
+              : 'Pesan dari ${message.senderName}. Isi pesan: ${messageText ?? "Pesan kosong"}.',
       container: true,
       child: Align(
         alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -783,11 +985,50 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (hasAudio)
+                if (isAudio && messageUrl != null && messageUrl.isNotEmpty)
                   AudioMessagePlayer(
                     audioUrl: messageUrl,
                     autoPlay: autoPlay,
                     onAutoPlayStarted: onAutoPlayStarted,
+                  )
+                else if (isImage && messageUrl != null && messageUrl.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      messageUrl,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 200,
+                          width: double.infinity,
+                          color: const Color(0xFF1E1E1E),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFFFFD700),
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 120,
+                          width: double.infinity,
+                          color: const Color(0xFF1E1E1E),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image, color: Colors.redAccent, size: 36),
+                              SizedBox(height: 8),
+                              Text(
+                                '[Gambar gagal dimuat]',
+                                style: TextStyle(color: Colors.redAccent, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   )
                 else
                   Text(
@@ -813,6 +1054,150 @@ class _MessageBubble extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class CameraCaptureScreen extends StatefulWidget {
+  const CameraCaptureScreen({super.key});
+
+  @override
+  State<CameraCaptureScreen> createState() => _CameraCaptureScreenState();
+}
+
+class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
+  CameraController? _cameraController;
+  bool _isInitializing = false;
+  String _errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeCamera();
+  }
+
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializeCamera() async {
+    if (!mounted) return;
+    setState(() {
+      _isInitializing = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        throw CameraException('NoCamera', 'Perangkat tidak memiliki kamera fisik.');
+      }
+
+      final backCamera = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
+
+      final controller = CameraController(
+        backCamera,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+
+      _cameraController = controller;
+      await controller.initialize();
+
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+          _errorMessage = 'Gagal mengakses kamera: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _takePicture() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isInitialized || controller.value.isTakingPicture) {
+      return;
+    }
+
+    try {
+      final file = await controller.takePicture();
+      if (mounted) {
+        Navigator.of(context).pop(file);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal mengambil gambar: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _cameraController;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: const Text(
+          'Ambil Foto',
+          style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFFFFD700)),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: _isInitializing || controller == null || !controller.value.isInitialized
+          ? Center(
+              child: _errorMessage.isNotEmpty
+                  ? Text(_errorMessage, style: const TextStyle(color: Colors.redAccent))
+                  : const CircularProgressIndicator(color: Color(0xFFFFD700)),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    child: AspectRatio(
+                      aspectRatio: controller.value.aspectRatio,
+                      child: CameraPreview(controller),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFD700),
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size.fromHeight(60),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    onPressed: _takePicture,
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text(
+                      'Ambil Foto',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

@@ -38,6 +38,7 @@ class UserModel {
   final UserRole role;
   final VerificationStatus verificationStatus;
   final String? ktpUrl;
+  final String? rejectionReason;
 
   const UserModel({
     required this.uid,
@@ -46,6 +47,7 @@ class UserModel {
     required this.role,
     this.verificationStatus = VerificationStatus.unverified,
     this.ktpUrl,
+    this.rejectionReason,
   });
 
   UserModel copyWith({
@@ -55,6 +57,7 @@ class UserModel {
     UserRole? role,
     VerificationStatus? verificationStatus,
     String? ktpUrl,
+    String? rejectionReason,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -63,6 +66,7 @@ class UserModel {
       role: role ?? this.role,
       verificationStatus: verificationStatus ?? this.verificationStatus,
       ktpUrl: ktpUrl ?? this.ktpUrl,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
     );
   }
 
@@ -74,6 +78,7 @@ class UserModel {
       'role': role.name,
       'verificationStatus': verificationStatus.name,
       'ktpUrl': ktpUrl,
+      'rejectionReason': rejectionReason,
     };
   }
 
@@ -87,6 +92,7 @@ class UserModel {
         map['verificationStatus'] as String? ?? '',
       ),
       ktpUrl: map['ktpUrl'] as String?,
+      rejectionReason: map['rejectionReason'] as String?,
     );
   }
 }

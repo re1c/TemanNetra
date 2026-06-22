@@ -13,6 +13,8 @@ import 'features/auth/presentation/screens/tunanetra_home_screen.dart';
 import 'features/auth/presentation/screens/volunteer_home_screen.dart';
 import 'features/auth/presentation/screens/admin_verification_dashboard_screen.dart';
 
+import 'package:temannetra/l10n/app_localizations.dart';
+
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
@@ -62,6 +64,8 @@ class TemanNetraApp extends ConsumerWidget {
       navigatorKey: navigatorKey,
       title: 'TemanNetra',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -72,6 +76,9 @@ class TemanNetraApp extends ConsumerWidget {
         ),
         materialTapTargetSize: MaterialTapTargetSize.padded,
       ),
+      routes: {
+        '/tunanetra_home': (context) => const TunanetraHomeScreen(),
+      },
       home: authState.when(
         data: (user) {
           if (user == null) {

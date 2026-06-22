@@ -44,6 +44,8 @@ class HelpRequestController extends _$HelpRequestController {
 
   Future<void> cancelHelpRequest(String id) async {
     state = const AsyncLoading();
+    ref.invalidate(helpRequestMessagesProvider(id));
+    ref.invalidate(myHelpRequestsProvider);
     state = await AsyncValue.guard(() async {
       await ref.read(helpRequestRepositoryProvider).cancelHelpRequest(id);
     });
