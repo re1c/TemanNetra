@@ -9,6 +9,9 @@ jobs:
   compile-android-binaries:
     name: "AOT Compilation & Cryptographic Signing"
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
 
     steps:
       - name: "1. Source Workspace Checkout"
@@ -26,7 +29,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: "4. Inject Keystore & Properties Cryptographic Secrets"
+      - name: "4. Inject Keystore, Firebase & Properties Cryptographic Secrets"
         run: |
           echo "${{ secrets.KEY_STORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
           echo "${{ secrets.KEY_PROPERTIES_CONTENT }}" > android/key.properties
@@ -47,12 +50,49 @@ jobs:
             --dart-define=SUPABASE_PUBLISHABLE_KEY="${{ secrets.PRODUCTION_SUPABASE_KEY }}" \
             --dart-define=GEMINI_API_KEY="${{ secrets.PRODUCTION_GROQ_KEY }}"
 
+      # Langkah Otomasi Ekstraksi Versi dan Penamaan Profesional (Dynamic Branding)
+      - name: "7.5. Parse Version and Execute Artifact Naming Realignment"
+        id: parse_version
+        run: |
+          # Ambil baris versi dari pubspec.yaml dan bersihkan whitespace
+          RAW_VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //' | xargs)
+          # Pisahkan nomor versi utama dari nomor build (misal 1.0.0+1 menjadi 1.0.0)
+          VERSION_NAME=$(echo "$RAW_VERSION" | cut -d'+' -f1)
+          BUILD_NUMBER="${{ github.run_number }}"
+          
+          cd build/app/outputs/flutter-apk/
+          mv app-arm64-v8a-release.apk "TemanNetra-${VERSION_NAME}-b${BUILD_NUMBER}-arm64-v8a.apk"
+          mv app-armeabi-v7a-release.apk "TemanNetra-${VERSION_NAME}-b${BUILD_NUMBER}-armeabi-v7a.apk"
+          mv app-x86_64-release.apk "TemanNetra-${VERSION_NAME}-b${BUILD_NUMBER}-x86_64.apk"
+          
+          # Daftarkan variabel lingkungan ke runner GitHub untuk langkah berikutnya
+          echo "VERSION_TAG=v${VERSION_NAME}" >> $GITHUB_ENV
+
       - name: "8. Archive Compiled Target Release Artifacts"
         uses: actions/upload-artifact@v4
         with:
           name: "TemanNetra-Release-APKs"
-          path: build/app/outputs/flutter-apk/*-release.apk
+          path: build/app/outputs/flutter-apk/TemanNetra-*.apk
           if-no-files-found: error
           retention-days: 7
 
-
+      - name: "9. Auto-Deploy Assets to GitHub Releases"
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/app/outputs/flutter-apk/TemanNetra-*.apk"
+          tag: "${{ env.VERSION_TAG }}"
+          name: "TemanNetra Production Release ${{ env.VERSION_TAG }}"
+          body: |
+            ## 🚀 Stable Automated Production Build
+            Seluruh komponen biner rilis dikompilasi secara asinkron menggunakan optimasi kompresi mesin R8 dan enkripsi kode sumber murni.
+            
+            **Informasi Pelacakan Komit:**
+            - Target Core Branch: `main`
+            - Build Pipeline ID: `${{ github.run_number }}`
+            - SHA Deteksi: `${{ github.sha }}`
+            
+            Unduh aset `.apk` langsung di bawah ini sesuai spesifikasi arsitektur target perangkat Anda.
+          allowUpdates: true
+          removeArtifacts: false
+          replacesArtifacts: false
+          makeLatest: true
