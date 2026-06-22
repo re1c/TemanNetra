@@ -30,6 +30,7 @@ jobs:
         run: |
           echo "${{ secrets.KEY_STORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
           echo "${{ secrets.KEY_PROPERTIES_CONTENT }}" > android/key.properties
+          echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
 
       - name: "5. Resolve Project Dependency Tree"
         run: flutter pub get
