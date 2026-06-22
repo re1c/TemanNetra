@@ -15,6 +15,19 @@ class ActiveClaimScreen extends ConsumerWidget {
     final claimedRequestsState = ref.watch(myClaimedHelpRequestsProvider);
     final actionState = ref.watch(volunteerControllerProvider);
 
+    ref.listen<AsyncValue<List<HelpRequestModel>>>(
+      myClaimedHelpRequestsProvider,
+      (previous, next) {
+        next.whenData((requests) {
+          if (requests.isEmpty) {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          }
+        });
+      },
+    );
+
     ref.listen<AsyncValue<void>>(volunteerControllerProvider, (previous, next) {
       next.whenOrNull(
         data: (_) {
@@ -66,15 +79,16 @@ class ActiveClaimScreen extends ConsumerWidget {
             style: TextStyle(
               color: Color(0xFFFFD700),
               fontWeight: FontWeight.bold,
+              fontSize: 14,
             ),
           ),
         ),
         title: const Text(
-          'Klaim Aktif',
+          'Klaim Bantuan Aktif',
           style: TextStyle(
             color: Color(0xFFFFD700),
             fontWeight: FontWeight.bold,
-            fontSize: 26,
+            fontSize: 20,
           ),
         ),
         centerTitle: true,
@@ -90,7 +104,7 @@ class ActiveClaimScreen extends ConsumerWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white70,
-                    fontSize: 20,
+                    fontSize: 15,
                     height: 1.4,
                   ),
                 ),
@@ -100,7 +114,7 @@ class ActiveClaimScreen extends ConsumerWidget {
 
           final request = requests.first;
 
-          return _ActiveClaimSession(
+          return ActiveClaimSession(
             request: request,
             isActionLoading: actionState.isLoading,
           );
@@ -118,7 +132,7 @@ class ActiveClaimScreen extends ConsumerWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.redAccent,
-                fontSize: 17,
+                fontSize: 15,
                 height: 1.4,
               ),
             ),
@@ -129,22 +143,94 @@ class ActiveClaimScreen extends ConsumerWidget {
   }
 }
 
-class _ActiveClaimSession extends ConsumerStatefulWidget {
+class ActiveClaimSession extends ConsumerStatefulWidget {
   final HelpRequestModel request;
   final bool isActionLoading;
 
-  const _ActiveClaimSession({
+  const ActiveClaimSession({
+    super.key,
     required this.request,
     required this.isActionLoading,
   });
 
   @override
-  ConsumerState<_ActiveClaimSession> createState() =>
+  ConsumerState<ActiveClaimSession> createState() =>
       _ActiveClaimSessionState();
 }
 
-class _ActiveClaimSessionState extends ConsumerState<_ActiveClaimSession> {
+class _ActiveClaimSessionState extends ConsumerState<ActiveClaimSession> {
   final TextEditingController _messageController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showAccuracyWarningDialog();
+    });
+  }
+
+  void _showAccuracyWarningDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: Color(0xFFFFD700), width: 2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.info_outline, color: Color(0xFFFFD700), size: 24),
+              SizedBox(width: 10),
+              Text(
+                'Perhatian Relawan',
+                style: TextStyle(
+                  color: Color(0xFFFFD700),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Berikan informasi dengan akurasi tinggi. Dilarang memberikan diagnosis medis atau hukum kepada pengguna.',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              height: 1.45,
+            ),
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFD700),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text(
+                  'Saya Mengerti',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   void dispose() {
@@ -212,7 +298,7 @@ class _ActiveClaimSessionState extends ConsumerState<_ActiveClaimSession> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: _TicketHeaderCard(
             name: requesterName,
             date: _formatDate(widget.request.createdAt),
@@ -224,14 +310,14 @@ class _ActiveClaimSessionState extends ConsumerState<_ActiveClaimSession> {
           ),
         ),
         const Padding(
-          padding: EdgeInsets.fromLTRB(22, 4, 22, 8),
+          padding: EdgeInsets.fromLTRB(18, 4, 18, 6),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'Percakapan',
               style: TextStyle(
                 color: Color(0xFFFFD700),
-                fontSize: 24,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -239,10 +325,10 @@ class _ActiveClaimSessionState extends ConsumerState<_ActiveClaimSession> {
         ),
         Expanded(
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 18),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: Colors.black,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white12),
             ),
             child: chatState.when(
@@ -256,7 +342,7 @@ class _ActiveClaimSessionState extends ConsumerState<_ActiveClaimSession> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white60,
-                          fontSize: 18,
+                          fontSize: 15,
                           height: 1.4,
                         ),
                       ),
@@ -264,13 +350,15 @@ class _ActiveClaimSessionState extends ConsumerState<_ActiveClaimSession> {
                   );
                 }
 
+                final reversedMessages = messages.reversed.toList();
                 return ListView.separated(
-                  padding: const EdgeInsets.all(14),
-                  itemCount: messages.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  reverse: true,
+                  padding: const EdgeInsets.all(12),
+                  itemCount: reversedMessages.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final currentUser = FirebaseAuth.instance.currentUser;
-                    final message = messages[index];
+                    final message = reversedMessages[index];
 
                     return _MessageBubble(
                       message: message,
@@ -294,37 +382,12 @@ class _ActiveClaimSessionState extends ConsumerState<_ActiveClaimSession> {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.redAccent,
-                      fontSize: 16,
+                      fontSize: 15,
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ),
-        Container(
-          color: const Color(0xFF2C2416),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0x80FFD700)),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.info_outline, color: Color(0xFFFFD700)),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Perhatian Relawan: Berikan informasi dengan akurasi tinggi. Dilarang memberikan diagnosis medis atau hukum kepada pengguna.',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
         _MessageComposer(
@@ -364,12 +427,12 @@ class _TicketHeaderCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         side: const BorderSide(
           color: Color(0xFFFFD700),
-          width: 1.4,
+          width: 1.2,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -377,38 +440,38 @@ class _TicketHeaderCard extends StatelessWidget {
               name,
               style: const TextStyle(
                 color: Color(0xFFFFD700),
-                fontSize: 24,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               date,
               style: const TextStyle(
                 color: Colors.white60,
-                fontSize: 15,
+                fontSize: 13,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
               description,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 19,
+                fontSize: 15,
                 height: 1.3,
               ),
             ),
             if (volunteerName != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Text(
                 'Relawan: $volunteerName',
                 style: const TextStyle(
                   color: Colors.white70,
-                  fontSize: 16,
+                  fontSize: 14,
                 ),
               ),
             ],
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -417,21 +480,21 @@ class _TicketHeaderCard extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF81C784),
                       foregroundColor: Colors.black,
-                      minimumSize: const Size.fromHeight(54),
+                      minimumSize: const Size.fromHeight(44),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     child: const Text(
                       'Selesai',
                       style: TextStyle(
-                        fontSize: 17,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton(
                     onPressed: isLoading ? null : onCancel,
@@ -441,15 +504,15 @@ class _TicketHeaderCard extends StatelessWidget {
                         color: Colors.redAccent,
                         width: 1.5,
                       ),
-                      minimumSize: const Size.fromHeight(54),
+                      minimumSize: const Size.fromHeight(44),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     child: const Text(
                       'Batal',
                       style: TextStyle(
-                        fontSize: 17,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -464,7 +527,7 @@ class _TicketHeaderCard extends StatelessWidget {
   }
 }
 
-class _MessageComposer extends StatelessWidget {
+class _MessageComposer extends StatefulWidget {
   final TextEditingController controller;
   final bool isLoading;
   final VoidCallback onSendText;
@@ -478,94 +541,112 @@ class _MessageComposer extends StatelessWidget {
   });
 
   @override
+  State<_MessageComposer> createState() => _MessageComposerState();
+}
+
+class _MessageComposerState extends State<_MessageComposer> {
+  bool _isRecording = false;
+
+  @override
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
       child: Container(
         color: Colors.black,
-        padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            VoiceNoteButton(
-              isDisabled: isLoading,
-              fullWidth: true,
-              onVoiceReady: onSendVoice,
+            Expanded(
+              flex: _isRecording ? 1 : 0,
+              child: SizedBox(
+                width: _isRecording ? null : 48,
+                child: VoiceNoteButton(
+                  key: const ValueKey('volunteer_voice_note_button'),
+                  isDisabled: widget.isLoading,
+                  isCompact: true,
+                  height: 48,
+                  onVoiceReady: widget.onSendVoice,
+                  onRecordingChanged: (recording) {
+                    setState(() {
+                      _isRecording = recording;
+                    });
+                  },
+                ),
+              ),
             ),
-            const SizedBox(height: 10),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    enabled: !isLoading,
-                    minLines: 1,
-                    maxLines: 2,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      height: 1.3,
+            if (!_isRecording) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 1,
+                child: TextField(
+                  controller: widget.controller,
+                  enabled: !widget.isLoading,
+                  minLines: 1,
+                  maxLines: 2,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    height: 1.3,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Tulis pesan teks',
+                    hintStyle: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 14,
                     ),
-                    decoration: InputDecoration(
-                      hintText: 'Tulis pesan teks',
-                      hintStyle: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 16,
+                    filled: true,
+                    fillColor: const Color(0xFF181818),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Colors.white54),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(
+                        color: Color(0xFFFFD700),
+                        width: 2,
                       ),
-                      filled: true,
-                      fillColor: const Color(0xFF181818),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 14,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.white54),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(
-                          color: Color(0xFFFFD700),
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  height: 54,
-                  width: 88,
-                  child: FilledButton(
-                    onPressed: isLoading ? null : onSendText,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFD700),
-                      foregroundColor: Colors.black,
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 48,
+                width: 76,
+                child: FilledButton(
+                  onPressed: widget.isLoading ? null : widget.onSendText,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFD700),
+                    foregroundColor: Colors.black,
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: isLoading
-                        ? const SizedBox.square(
-                            dimension: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              color: Colors.black,
-                            ),
-                          )
-                        : const Text(
-                            'Kirim',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                  ),
+                  child: widget.isLoading
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.black,
                           ),
-                  ),
+                        )
+                      : const Text(
+                          'Kirim',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ],
         ),
       ),
@@ -592,17 +673,18 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final messageText = message.messageText?.trim();
     final messageUrl = message.messageUrl?.trim();
-    final hasAudio = messageUrl != null && messageUrl.isNotEmpty;
+    final isAudio = message.messageType == 'audio';
+    final isImage = message.messageType == 'image';
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 330),
+        constraints: const BoxConstraints(maxWidth: 300),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: isMine ? const Color(0xFF2C2600) : const Color(0xFF242424),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isMine ? const Color(0xFFFFD700) : Colors.white24,
             ),
@@ -616,13 +698,52 @@ class _MessageBubble extends StatelessWidget {
                     : message.senderName,
                 style: const TextStyle(
                   color: Color(0xFFFFD700),
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 8),
-              if (hasAudio)
+              const SizedBox(height: 6),
+              if (isAudio && messageUrl != null && messageUrl.isNotEmpty)
                 AudioMessagePlayer(audioUrl: messageUrl)
+              else if (isImage && messageUrl != null && messageUrl.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    messageUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        height: 200,
+                        width: double.infinity,
+                        color: const Color(0xFF1E1E1E),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFFFFD700),
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 120,
+                        width: double.infinity,
+                        color: const Color(0xFF1E1E1E),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.broken_image, color: Colors.redAccent, size: 36),
+                            SizedBox(height: 8),
+                            Text(
+                              '[Gambar gagal dimuat]',
+                              style: TextStyle(color: Colors.redAccent, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                )
               else
                 Text(
                   messageText == null || messageText.isEmpty
@@ -630,16 +751,16 @@ class _MessageBubble extends StatelessWidget {
                       : messageText,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 17,
-                    height: 1.35,
+                    fontSize: 14,
+                    height: 1.3,
                   ),
                 ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 _formatDate(message.createdAt),
                 style: const TextStyle(
                   color: Colors.white54,
-                  fontSize: 12,
+                  fontSize: 11,
                 ),
               ),
             ],

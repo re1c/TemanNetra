@@ -28,6 +28,7 @@ class _VolunteerDashboardScreenState
 
   @override
   Widget build(BuildContext context) {
+    final currentTabIndex = ref.watch(volunteerDashboardTabControllerProvider);
     final pendingRequestsAsync = ref.watch(pendingHelpRequestsProvider);
     final actionState = ref.watch(volunteerControllerProvider);
 
@@ -190,31 +191,15 @@ class _VolunteerDashboardScreenState
           appBar: AppBar(
             backgroundColor: Colors.black,
             toolbarHeight: 68,
-            title: const Text(
-              'Dasbor Relawan',
-              style: TextStyle(
+            title: Text(
+              currentTabIndex == 0 ? 'Dasbor Relawan' : 'Klaim Aktif',
+              style: const TextStyle(
                 color: Color(0xFFFFD700),
                 fontWeight: FontWeight.bold,
                 fontSize: 24,
               ),
             ),
             actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ActiveClaimScreen(),
-                    ),
-                  );
-                },
-                child: const Text(
-                  'Klaim Aktif',
-                  style: TextStyle(
-                    color: Color(0xFFFFD700),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
               TextButton(
                 onPressed: () {
                   ref.read(authMutationControllerProvider.notifier).signOut();
@@ -229,48 +214,85 @@ class _VolunteerDashboardScreenState
               ),
             ],
           ),
-          body: pendingRequestsAsync.when(
-            loading: () {
-              return const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFFFFD700),
-                ),
-              );
-            },
-            error: (error, stackTrace) {
-              return _VolunteerDashboardError(
-                message: error.toString(),
-              );
-            },
-            data: (requests) {
-              if (requests.isEmpty) {
-                return const _EmptyPendingRequestState();
-              }
-
-              return RefreshIndicator(
-                onRefresh: () async {
-                  ref.invalidate(pendingHelpRequestsProvider);
+          body: IndexedStack(
+            index: currentTabIndex,
+            children: [
+              pendingRequestsAsync.when(
+                loading: () {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFFFFD700),
+                    ),
+                  );
                 },
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: requests.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 14),
-                  itemBuilder: (context, index) {
-                    final request = requests[index];
+                error: (error, stackTrace) {
+                  return _VolunteerDashboardError(
+                    message: error.toString(),
+                  );
+                },
+                data: (requests) {
+                  if (requests.isEmpty) {
+                    return const _EmptyPendingRequestState();
+                  }
 
-                    return _PendingRequestCard(
-                      request: request,
-                      isActionLoading: actionState.isLoading,
-                      onClaimPressed: () {
-                        ref
-                            .read(volunteerControllerProvider.notifier)
-                            .claimHelpRequest(request.id);
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(pendingHelpRequestsProvider);
+                    },
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: requests.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 14),
+                      itemBuilder: (context, index) {
+                        final request = requests[index];
+
+                        return _PendingRequestCard(
+                          request: request,
+                          isActionLoading: actionState.isLoading,
+                          onClaimPressed: () async {
+                            ref.read(hapticServiceProvider).vibrateClick();
+                            await ref
+                                .read(volunteerControllerProvider.notifier)
+                                .claimHelpRequest(request.id);
+                            final state = ref.read(volunteerControllerProvider);
+                            if (!state.hasError) {
+                              if (context.mounted) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const ActiveClaimScreen(),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                        );
                       },
-                    );
-                  },
-                ),
-              );
+                    ),
+                  );
+                },
+              ),
+              const _ActiveClaimTabBody(),
+            ],
+          ),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: currentTabIndex,
+            onTap: (index) {
+              ref.read(hapticServiceProvider).vibrateClick();
+              ref.read(volunteerDashboardTabControllerProvider.notifier).setTab(index);
             },
+            backgroundColor: Colors.black,
+            selectedItemColor: const Color(0xFFFFD700),
+            unselectedItemColor: Colors.white54,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.list_alt),
+                label: 'Daftar Bantuan',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.chat_bubble_outline),
+                label: 'Klaim Aktif',
+              ),
+            ],
           ),
         );
       },
@@ -865,6 +887,63 @@ class _KtpVerificationFormViewState extends State<KtpVerificationFormView> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ActiveClaimTabBody extends ConsumerWidget {
+  const _ActiveClaimTabBody();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final claimedRequestsState = ref.watch(myClaimedHelpRequestsProvider);
+    final actionState = ref.watch(volunteerControllerProvider);
+
+    return claimedRequestsState.when(
+      data: (requests) {
+        if (requests.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Belum ada tiket bantuan yang sedang Anda klaim.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 18,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          );
+        }
+
+        final request = requests.first;
+
+        return ActiveClaimSession(
+          request: request,
+          isActionLoading: actionState.isLoading,
+        );
+      },
+      loading: () => const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFD700)),
+        ),
+      ),
+      error: (error, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Gagal memuat klaim aktif:\n$error',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.redAccent,
+              fontSize: 16,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

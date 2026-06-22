@@ -176,6 +176,18 @@ class VolunteerRepositoryImpl implements VolunteerRepository {
 
     final ticketDocRef = _helpRequestsCollection.doc(requestId);
 
+    // Scrub messages sub-collection clean before returning status to pending
+    try {
+      final messagesSnapshot = await _messagesCollection(requestId).get();
+      final batch = _firestore.batch();
+      for (final doc in messagesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (_) {
+      // Ignore intermediate message deletion error to prevent blocking ticket state reset
+    }
+
     await _firestore.runTransaction((transaction) async {
       final ticketSnapshot = await transaction.get(ticketDocRef);
 
