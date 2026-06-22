@@ -130,6 +130,8 @@ class _HelpRequestHistoryScreenState
         return 'Sedang Dibantu Relawan';
       case HelpRequestStatus.resolved:
         return 'Selesai Dibantu';
+      case HelpRequestStatus.cancelled:
+        return 'Dibatalkan';
     }
   }
 
@@ -141,6 +143,8 @@ class _HelpRequestHistoryScreenState
         return const Color(0xFF64B5F6);
       case HelpRequestStatus.resolved:
         return const Color(0xFF81C784);
+      case HelpRequestStatus.cancelled:
+        return Colors.redAccent;
     }
   }
 
