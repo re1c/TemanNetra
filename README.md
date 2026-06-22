@@ -9,21 +9,21 @@ TemanNetra is a mobile application developed as a Final Project for the Mobile P
 ## 👥 Development Team & Feature Division
 The codebase is structured around a Feature-First modular design. Functional CRUD operations connected to Cloud Firestore and Firebase Storage are allocated as follows:
 
-### Member 1: Naswan Nashir (NRP 5025231219)
+### Member 1: Naswan Nashir (NRP 5025231246)
 * **Module**: Visually Impaired Assistant (Client Side)
 * **CRUD Scope**:
-  - **Create**: Capture visual data via camera, process text recognition using the Gemini API, or submit a assistance ticket to Cloud Firestore.
+  - **Create**: Capture visual data via camera, process text recognition using the Gemini API, or submit an assistance ticket to Cloud Firestore.
   - **Read**: Fetch and playback the user's historical ticket list.
   - **Update**: Modify active ticket descriptions or re-evaluate local visual text analysis.
   - **Delete**: Remove past ticket logs from the database for user privacy.
 
-### Member 2: Sultan Alif (NRP 5025231246)
+### Member 2: Sultan Alif (NRP 5025231219)
 * **Module**: Volunteer Dashboard (Volunteer Side)
 * **CRUD Scope**:
-  - **Create**: Record and upload audio/chat responses to Firebase Storage.
-  - **Read**: Fetch a list of active unresolved requests in the surrounding area.
-  - **Update**: Claim a ticket and transition its execution status.
-  - **Delete**: Cancel a claimed ticket prior to resolution.
+  - **Create**: Send text responses, record and upload voice notes to Supabase Storage, and trigger notifications for relevant assistance-request updates.
+  - **Read**: Fetch active unresolved assistance requests, chat messages, voice notes, and notifications.
+  - **Update**: Claim or resolve an assistance request and update its execution status.
+  - **Delete**: Cancel a claimed assistance request before it is resolved.
 
 ## ♿ Accessibility Specifications
 The interface is designed to support baseline accessibility parameters:
@@ -34,7 +34,7 @@ The interface is designed to support baseline accessibility parameters:
 
 ## 🔌 Architecture & Core Tech Stack
 * **State Management**: Riverpod (via code generation).
-* **Database & Storage**: Firebase Authentication, Cloud Firestore, and Firebase Storage.
+* **Authentication, Database & Storage**: Firebase Authentication, Cloud Firestore, and Supabase Storage.
 * **APIs**: Gemini Developer API (OCR/Text recognition) and Firebase Cloud Messaging (FCM).
 
 ## 📊 Class Diagram
