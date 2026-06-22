@@ -7,7 +7,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../features/auth/domain/models/user_model.dart';
 import '../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../features/help_request/domain/models/help_request_model.dart';
-import '../../features/help_request/presentation/screens/help_request_detail_screen.dart';
+import '../../features/volunteer/presentation/screens/volunteer_ticket_preview_screen.dart';
 import '../../main.dart';
 
 part 'notification_service.g.dart';
@@ -157,15 +157,16 @@ class NotificationService extends _$NotificationService {
             .get();
         if (doc.exists) {
           final ticket = HelpRequestModel.fromMap(doc.data()!, doc.id);
-          navigatorKey.currentState?.push(
+          navigatorKey.currentState?.pushAndRemoveUntil(
             MaterialPageRoute<void>(
-              builder: (context) => HelpRequestDetailScreen(ticket: ticket),
+              builder: (context) => VolunteerTicketPreviewScreen(ticket: ticket),
             ),
+            (route) => route.isFirst,
           );
         }
       } catch (e, stackTrace) {
         developer.log(
-          'Gagal melakukan deep-link ke HelpRequestDetailScreen',
+          'Gagal melakukan deep-link ke VolunteerTicketPreviewScreen',
           name: 'NotificationService',
           error: e,
           stackTrace: stackTrace,
